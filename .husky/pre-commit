@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+
+# ── 1. Block commits if .env.local or any .env file is staged ──────────────
+if git diff --cached --name-only | grep -E '\.env($|\.local$|\.development(\.local)?$|\.test(\.local)?$|\.production(\.local)?$)' | grep -qv '\.example$'; then
+  echo "❌  COMMIT BLOCKED: A .env file is staged. Never commit secrets."
+  echo "    Remove it with: git reset HEAD <file>"
+  exit 1
+fi
+
+# ── 2. Block hardcoded secret patterns ─────────────────────────────────────
+SECRET_PATTERN='(sk_live_[A-Za-z0-9]{20,}|pk_live_[A-Za-z0-9]{20,}|sk_test_[A-Za-z0-9]{20,}|whsec_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{35}|ghp_[A-Za-z0-9]{36}|glpat-[A-Za-z0-9_-]{20}|xoxb-[0-9A-Za-z-]+|xoxp-[0-9A-Za-z-]+|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY)'
+if git diff --cached -U0 -- ':!*.example' ':!.husky' | grep -qE "$SECRET_PATTERN"; then
+  echo "❌  COMMIT BLOCKED: Possible hardcoded secret detected in staged diff."
+  echo "    Review your staged changes and move secrets to .env.local."
+  exit 1
+fi
+
+# ── 3. Run lint-staged (ESLint + Prettier) ─────────────────────────────────
+npx lint-staged
