@@ -1,6 +1,5 @@
 // Prisma schema — Casa Cards & Collectibles
-// Phase 1 stub: verifies DB connectivity
-// Full schema built out in Phase 2 (Tasks 2.1–2.5)
+// Full schema: Tasks 2.1–2.5
 
 generator client {
   provider = "prisma-client-js"
@@ -12,23 +11,346 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ── Stub models ───────────────────────────────────────────────────────────
+// ── Enums ─────────────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum Condition {
+  NEW
+  LIKE_NEW
+  USED
+  REFURBISHED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYPAL
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum SyncStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+// ── Task 2.1 — Users & Auth ───────────────────────────────────────────────────
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String?
+  role          Role      @default(CUSTOMER)
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
+  sessions           Session[]
+  passwordResetTokens PasswordResetToken[]
+  orders             Order[]
+  addresses          Address[]
+  reviews            Review[]
+  carts              Cart[]
+
+  @@index([email])
   @@map("users")
 }
 
-model Product {
+model Session {
   id        String   @id @default(uuid())
-  title     String
-  isActive  Boolean  @default(true)
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ── Task 2.2 — Products & Inventory ──────────────────────────────────────────
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  description String?
+  parentId    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                String    @id @default(uuid())
+  ebayItemId        String?   @unique
+  title             String
+  description       String?
+  price             Decimal   @db.Decimal(10, 2)
+  compareAtPrice    Decimal?  @db.Decimal(10, 2)
+  condition         Condition @default(USED)
+  sku               String?   @unique
+  barcode           String?
+  stockQuantity     Int       @default(0)
+  lowStockThreshold Int       @default(5)
+  isActive          Boolean   @default(true)
+  categoryId        String?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  category   Category?        @relation(fields: [categoryId], references: [id])
+  images     ProductImage[]
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+  cartItems  CartItem[]
+  reviews    Review[]
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([ebayItemId])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  url       String
+  altText   String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id        String   @id @default(uuid())
+  productId String
+  name      String
+  value     String
+  price     Decimal? @db.Decimal(10, 2)
+  stock     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("products")
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+// ── Task 2.3 — Orders & Cart ──────────────────────────────────────────────────
+
+model Address {
+  id        String   @id @default(uuid())
+  userId    String?
+  name      String
+  line1     String
+  line2     String?
+  city      String
+  state     String   @db.Char(2)
+  zip       String
+  country   String   @default("US") @db.Char(2)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user           User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  shippingOrders Order[] @relation("ShippingAddress")
+  billingOrders  Order[] @relation("BillingAddress")
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Cart {
+  id        String   @id @default(uuid())
+  userId    String?
+  sessionId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items         CartItem[]
+  abandonedCart AbandonedCart?
+
+  @@index([userId])
+  @@index([sessionId])
+  @@map("carts")
+}
+
+model CartItem {
+  id         String   @id @default(uuid())
+  cartId     String
+  productId  String
+  quantity   Int
+  priceAtAdd Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id                String          @id @default(uuid())
+  orderNumber       String          @unique
+  userId            String?
+  status            OrderStatus     @default(PENDING)
+  subtotal          Decimal         @db.Decimal(10, 2)
+  shippingCost      Decimal         @db.Decimal(10, 2)
+  taxAmount         Decimal         @db.Decimal(10, 2)
+  totalAmount       Decimal         @db.Decimal(10, 2)
+  paymentProvider   PaymentProvider
+  paymentIntentId   String          @unique
+  shippingAddressId String
+  billingAddressId  String
+  trackingNumber    String?
+  shippedAt         DateTime?
+  deliveredAt       DateTime?
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  shippingAddress Address     @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  billingAddress  Address     @relation("BillingAddress", fields: [billingAddressId], references: [id])
+  items           OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String  @id @default(uuid())
+  orderId    String
+  productId  String
+  quantity   Int
+  unitPrice  Decimal @db.Decimal(10, 2)
+  totalPrice Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ── Task 2.4 — Reviews, Discounts, Email ─────────────────────────────────────
+
+model Review {
+  id         String   @id @default(uuid())
+  productId  String
+  userId     String
+  rating     Int
+  title      String?
+  body       String?
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId])
+  @@index([productId])
+  @@map("reviews")
+}
+
+model DiscountCode {
+  id             String       @id @default(uuid())
+  code           String       @unique
+  type           DiscountType
+  value          Decimal      @db.Decimal(10, 2)
+  minOrderAmount Decimal?     @db.Decimal(10, 2)
+  maxUses        Int?
+  usedCount      Int          @default(0)
+  expiresAt      DateTime?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("discount_codes")
+}
+
+model EmailSubscriber {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  subscribedAt DateTime @default(now())
+  isActive     Boolean  @default(true)
+
+  @@map("email_subscribers")
+}
+
+model AbandonedCart {
+  id              String    @id @default(uuid())
+  cartId          String    @unique
+  email           String
+  reminderSentAt  DateTime?
+  createdAt       DateTime  @default(now())
+
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@map("abandoned_carts")
+}
+
+// ── Task 2.5 — eBay Sync Log ──────────────────────────────────────────────────
+
+model EbaySyncLog {
+  id                 String     @id @default(uuid())
+  startedAt          DateTime   @default(now())
+  completedAt        DateTime?
+  status             SyncStatus
+  itemsProcessed     Int        @default(0)
+  itemsCreated       Int        @default(0)
+  itemsUpdated       Int        @default(0)
+  itemsDeactivated   Int        @default(0)
+  errorLog           String?
+
+  @@map("ebay_sync_logs")
 }
