@@ -95,11 +95,11 @@ _Goal: Scaffold the project with security baked in from day one. No shortcuts._
 
 ### Phase 1 Verification
 
-- [ ] Run `npm audit` — zero high/critical vulnerabilities
-- [ ] Verify security headers using [securityheaders.com](https://securityheaders.com) (after deployment)
-- [ ] Confirm `.env.local` is NOT committed to git
-- [ ] Test rate limiting: exceed limit and confirm 429 response
-- [ ] Verify TypeScript strict mode catches type errors
+- [x] Run `npm audit` — zero high/critical vulnerabilities
+- [x] Verify security headers using [securityheaders.com](https://securityheaders.com) (after deployment)
+- [x] Confirm `.env.local` is NOT committed to git
+- [ ] Test rate limiting: exceed limit and confirm 429 response — deferred to Task 3.1 (no API routes yet)
+- [x] Verify TypeScript strict mode catches type errors
 
 ---
 
