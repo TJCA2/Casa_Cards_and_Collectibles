@@ -205,8 +205,8 @@ EbaySyncLog
 
 ### Phase 2 Verification
 
-- [ ] Run `npx prisma validate` — no schema errors
-- [ ] Run `npx prisma db push` successfully
+- [x] Run `npx prisma validate` — no schema errors
+- [x] Run `npx prisma db push` successfully
 - [ ] Confirm RLS policies are applied in Supabase dashboard
 - [ ] Seed database with 5 sample products and verify queries
 
