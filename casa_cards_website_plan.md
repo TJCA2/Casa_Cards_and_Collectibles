@@ -218,11 +218,11 @@ _Goal: Secure user registration, login, sessions, and password management._
 
 ### Task 3.1 — NextAuth.js Setup
 
-- [ ] Install NextAuth.js: `npm install next-auth`
-- [ ] Configure providers: Email/Password (Credentials), Google OAuth (optional), GitHub OAuth (optional)
-- [ ] Use httpOnly, Secure, SameSite=Strict cookies for session tokens
-- [ ] Set session maxAge to 7 days; rotate tokens on each request
-- [ ] Configure NextAuth secret via `NEXTAUTH_SECRET` env variable (strong random string)
+- [x] Install NextAuth.js: `npm install next-auth`
+- [x] Configure providers: Email/Password (Credentials), Google OAuth (optional), GitHub OAuth (optional)
+- [x] Use httpOnly, Secure, SameSite=Strict cookies for session tokens
+- [x] Set session maxAge to 7 days; rotate tokens on each request
+- [x] Configure NextAuth secret via `NEXTAUTH_SECRET` env variable (strong random string)
 
 ### Task 3.2 — Registration & Email Verification
 
