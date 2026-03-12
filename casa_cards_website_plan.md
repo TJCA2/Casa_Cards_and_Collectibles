@@ -72,13 +72,13 @@ _Goal: Scaffold the project with security baked in from day one. No shortcuts._
 
 ### Task 1.3 — Database Setup (PostgreSQL via Supabase)
 
-- [ ] Create Supabase project and PostgreSQL database
-- [ ] Install Prisma ORM: `npm install prisma @prisma/client`
-- [ ] Initialize Prisma: `npx prisma init`
-- [ ] Enable Row Level Security (RLS) on all Supabase tables
-- [ ] Store database connection string in `.env.local` only — never hardcode
-- [ ] Create initial Prisma schema (see Phase 2 for full schema)
-- [ ] Run `npx prisma db push` to apply schema
+- [x] Create Supabase project and PostgreSQL database
+- [x] Install Prisma ORM: `npm install prisma @prisma/client`
+- [x] Initialize Prisma: `npx prisma init`
+- [x] Enable Row Level Security (RLS) on all Supabase tables
+- [x] Store database connection string in `.env.local` only — never hardcode
+- [x] Create initial Prisma schema (see Phase 2 for full schema)
+- [x] Run `npx prisma db push` to apply schema
 
 ### Task 1.4 — Rate Limiting Middleware
 
