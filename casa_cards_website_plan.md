@@ -89,9 +89,9 @@ _Goal: Scaffold the project with security baked in from day one. No shortcuts._
 
 ### Task 1.5 — Input Validation Library
 
-- [ ] Install Zod: `npm install zod`
-- [ ] Create shared validation schemas for: user registration, login, product search, order creation, contact form
-- [ ] All API route handlers must validate request body/params with Zod before processing
+- [x] Install Zod: `npm install zod`
+- [x] Create shared validation schemas for: user registration, login, product search, order creation, contact form
+- [x] All API route handlers must validate request body/params with Zod before processing
 
 ### Phase 1 Verification
 
