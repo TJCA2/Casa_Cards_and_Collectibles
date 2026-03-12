@@ -82,10 +82,10 @@ _Goal: Scaffold the project with security baked in from day one. No shortcuts._
 
 ### Task 1.4 — Rate Limiting Middleware
 
-- [ ] Install `upstash/ratelimit` or `express-rate-limit` equivalent for Next.js API routes
-- [ ] Apply rate limiting to: `/api/auth/*`, `/api/checkout/*`, `/api/contact`, `/api/ebay-sync`
-- [ ] Default limits: 10 requests/minute for auth; 30/minute for general APIs
-- [ ] Return `429 Too Many Requests` with `Retry-After` header on limit breach
+- [x] Install `upstash/ratelimit` or `express-rate-limit` equivalent for Next.js API routes
+- [x] Apply rate limiting to: `/api/auth/*`, `/api/checkout/*`, `/api/contact`, `/api/ebay-sync`
+- [x] Default limits: 10 requests/minute for auth; 30/minute for general APIs
+- [x] Return `429 Too Many Requests` with `Retry-After` header on limit breach
 
 ### Task 1.5 — Input Validation Library
 
