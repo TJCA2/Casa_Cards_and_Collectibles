@@ -48,3 +48,4 @@ coverage/
 .secrets.baseline
 
 /src/generated/prisma
+.claude/settings.local.json
