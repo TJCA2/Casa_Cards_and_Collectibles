@@ -4,7 +4,7 @@ import { authRatelimit, apiRatelimit } from "@/lib/ratelimit";
 const AUTH_PATTERN = /^\/api\/auth\//;
 const API_PATTERN = /^\/api\/(checkout|contact|ebay-sync)(\/|$)/;
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
 
