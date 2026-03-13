@@ -1,13 +1,17 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM ?? "orders@casa-cards.com";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://casa-cards.com";
+
+// Lazy-initialize so missing key throws at call time, not at build time
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 export async function sendVerificationEmail(email: string, token: string): Promise<void> {
   const url = `${SITE_URL}/auth/verify-email?token=${token}`;
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: email,
     subject: "Verify your Casa Cards account",
@@ -23,7 +27,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
 export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
   const url = `${SITE_URL}/auth/reset-password?token=${token}`;
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: email,
     subject: "Reset your Casa Cards password",
