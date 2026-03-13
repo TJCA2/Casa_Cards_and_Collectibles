@@ -1,13 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { authRatelimit, apiRatelimit } from "@/lib/ratelimit";
 
 const AUTH_PATTERN = /^\/api\/auth\//;
-const API_PATTERN = /^\/api\/(checkout|contact|ebay-sync)(\/|$)/;
+const API_PATTERN = /^\/api\/(checkout|contact|ebay-sync|ebay|admin)(\/|$)/;
+const ADMIN_PAGE_PATTERN = /^\/admin(\/|$)/;
+const ADMIN_API_PATTERN = /^\/api\/admin\//;
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
 
+  // ── Admin route protection ─────────────────────────────────────────────────
+  // Exempt the bootstrap promote endpoint — it has its own secret-based auth
+  const isBootstrap = pathname === "/api/admin/promote";
+  if (!isBootstrap && (ADMIN_PAGE_PATTERN.test(pathname) || ADMIN_API_PATTERN.test(pathname))) {
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET!,
+      secureCookie: process.env.NODE_ENV === "production",
+    });
+
+    const isAdmin = token?.role === "ADMIN";
+
+    if (!isAdmin) {
+      if (ADMIN_API_PATTERN.test(pathname)) {
+        // Return JSON 403 for API routes
+        return NextResponse.json({ error: "Forbidden: admin access required." }, { status: 403 });
+      }
+      // Redirect page requests to 403 — never reveal that admin routes exist
+      return NextResponse.redirect(new URL("/403", request.url));
+    }
+  }
+
+  // ── Rate limiting ──────────────────────────────────────────────────────────
   const isAuth = AUTH_PATTERN.test(pathname);
   const isApi = API_PATTERN.test(pathname);
 
@@ -32,5 +58,13 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/auth/:path*", "/api/checkout/:path*", "/api/contact", "/api/ebay-sync"],
+  matcher: [
+    "/admin/:path*",
+    "/api/auth/:path*",
+    "/api/admin/:path*",
+    "/api/checkout/:path*",
+    "/api/contact",
+    "/api/ebay-sync",
+    "/api/ebay/:path*",
+  ],
 };

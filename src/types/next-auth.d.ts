@@ -21,5 +21,6 @@ declare module "next-auth/jwt" {
     id: string;
     role: Role;
     emailVerified: boolean;
+    signedInAt?: number; // ms timestamp of original sign-in — used for session invalidation
   }
 }
