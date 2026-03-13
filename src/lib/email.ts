@@ -9,7 +9,7 @@ function getResend() {
 }
 
 export async function sendVerificationEmail(email: string, token: string): Promise<void> {
-  const url = `${SITE_URL}/auth/verify-email?token=${token}`;
+  const url = `${SITE_URL}/api/auth/verify-email?token=${token}`;
 
   await getResend().emails.send({
     from: FROM,

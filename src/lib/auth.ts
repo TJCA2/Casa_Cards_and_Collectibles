@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/schemas";
+import { checkLoginStatus, recordLoginAttempt, validateTurnstile } from "@/lib/login-protection";
 
 const secureCookies: NextAuthOptions["cookies"] = {
   sessionToken: {
@@ -23,20 +24,62 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        // captchaToken is passed programmatically — not shown in any generated form
+        captchaToken: { label: "CAPTCHA Token", type: "text" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
+        // ── Extract client IP from forwarded headers ──────────────────────────
+        const fwdFor = req.headers?.["x-forwarded-for"];
+        const ip =
+          (typeof fwdFor === "string" ? fwdFor.split(",")[0]?.trim() : undefined) ?? "unknown";
+
+        // ── Validate credentials shape ────────────────────────────────────────
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
+        const { email, password } = parsed.data;
+        const captchaToken = credentials?.captchaToken ?? "";
+
+        // ── Check lockout / captcha status ────────────────────────────────────
+        const { locked, captchaRequired } = await checkLoginStatus(email, ip);
+
+        if (locked) {
+          await recordLoginAttempt(email, ip, false);
+          throw new Error("AccountLocked");
+        }
+
+        // ── Validate CAPTCHA when required ────────────────────────────────────
+        if (captchaRequired) {
+          const captchaValid = await validateTurnstile(captchaToken);
+          if (!captchaValid) {
+            return null;
+          }
+        }
+
+        // ── Look up user ──────────────────────────────────────────────────────
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
         });
 
-        if (!user || !user.passwordHash) return null;
-        if (!user.emailVerified) return null;
+        if (!user || !user.passwordHash) {
+          await recordLoginAttempt(email, ip, false);
+          return null;
+        }
 
-        const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
-        if (!valid) return null;
+        if (!user.emailVerified) {
+          await recordLoginAttempt(email, ip, false);
+          return null;
+        }
+
+        // ── Verify password ───────────────────────────────────────────────────
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) {
+          await recordLoginAttempt(email, ip, false);
+          return null;
+        }
+
+        // ── Success ───────────────────────────────────────────────────────────
+        await recordLoginAttempt(email, ip, true);
 
         return {
           id: user.id,
@@ -59,14 +102,37 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user }) {
+      // On initial sign-in, populate token fields and stamp sign-in time
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.emailVerified = Boolean(user.emailVerified);
+        // signedInAt is the original sign-in timestamp — never overwritten on refresh
+        token.signedInAt = Date.now();
       }
+
+      // On every token check, invalidate if password was changed after sign-in
+      if (token.id && token.signedInAt) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { passwordChangedAt: true },
+        });
+
+        if (
+          dbUser?.passwordChangedAt &&
+          dbUser.passwordChangedAt.getTime() > (token.signedInAt as number)
+        ) {
+          // Password changed after this session was created — force re-login
+          return {} as typeof token;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
+      // If the token was invalidated (empty), reflect that in the session
+      if (!token.id) return session;
+
       session.user.id = token.id;
       session.user.role = token.role;
       session.user.emailVerified = token.emailVerified;
