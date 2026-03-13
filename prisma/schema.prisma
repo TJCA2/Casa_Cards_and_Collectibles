@@ -62,12 +62,13 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  sessions           Session[]
-  passwordResetTokens PasswordResetToken[]
-  orders             Order[]
-  addresses          Address[]
-  reviews            Review[]
-  carts              Cart[]
+  sessions                 Session[]
+  passwordResetTokens      PasswordResetToken[]
+  emailVerificationTokens  EmailVerificationToken[]
+  orders                   Order[]
+  addresses                Address[]
+  reviews                  Review[]
+  carts                    Cart[]
 
   @@index([email])
   @@map("users")
@@ -98,6 +99,19 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
 }
 
 // ── Task 2.2 — Products & Inventory ──────────────────────────────────────────

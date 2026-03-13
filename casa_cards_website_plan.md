@@ -226,11 +226,11 @@ _Goal: Secure user registration, login, sessions, and password management._
 
 ### Task 3.2 — Registration & Email Verification
 
-- [ ] Registration form with Zod validation (email format, password strength: min 8 chars, upper + lower + number + special)
-- [ ] Hash password with bcrypt (cost factor 12) before storing
-- [ ] Send verification email with expiring token (24-hour expiry)
-- [ ] Block login until email is verified
-- [ ] Prevent user enumeration: return the same message whether email exists or not
+- [x] Registration form with Zod validation (email format, password strength: min 8 chars, upper + lower + number + special)
+- [x] Hash password with bcrypt (cost factor 12) before storing
+- [x] Send verification email with expiring token (24-hour expiry)
+- [x] Block login until email is verified
+- [x] Prevent user enumeration: return the same message whether email exists or not
 
 ### Task 3.3 — Login & Brute Force Protection
 
