@@ -57,6 +57,11 @@ model User {
   id                String    @id @default(uuid())
   email             String    @unique
   passwordHash      String?
+  name              String?
+  phone             String?
+  pendingEmail      String?
+  lastExportAt              DateTime?
+  lastEmailChangeRequestAt  DateTime?
   role              Role      @default(CUSTOMER)
   emailVerified     Boolean   @default(false)
   passwordChangedAt DateTime?
@@ -70,6 +75,7 @@ model User {
   addresses                Address[]
   reviews                  Review[]
   carts                    Cart[]
+  wishlist                 Wishlist?
 
   @@index([email])
   @@map("users")
@@ -152,12 +158,13 @@ model Product {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  category   Category?        @relation(fields: [categoryId], references: [id])
-  images     ProductImage[]
-  variants   ProductVariant[]
-  orderItems OrderItem[]
-  cartItems  CartItem[]
-  reviews    Review[]
+  category      Category?        @relation(fields: [categoryId], references: [id])
+  images        ProductImage[]
+  variants      ProductVariant[]
+  orderItems    OrderItem[]
+  cartItems     CartItem[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -260,6 +267,7 @@ model Order {
   shippingCost      Decimal         @db.Decimal(10, 2)
   taxAmount         Decimal         @db.Decimal(10, 2)
   totalAmount       Decimal         @db.Decimal(10, 2)
+  customerEmail     String?
   paymentProvider   PaymentProvider
   paymentIntentId   String          @unique
   shippingAddressId String
@@ -367,6 +375,33 @@ model LoginAttempt {
   @@index([email, createdAt])
   @@index([ipAddress, createdAt])
   @@map("login_attempts")
+}
+
+// ── Task 7.5 — Wishlist ───────────────────────────────────────────────────────
+
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items WishlistItem[]
+
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id         String   @id @default(uuid())
+  wishlistId String
+  productId  String
+  addedAt    DateTime @default(now())
+
+  wishlist Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, productId])
+  @@index([wishlistId])
+  @@map("wishlist_items")
 }
 
 // ── Task 2.5 — eBay Sync Log ──────────────────────────────────────────────────

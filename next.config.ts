@@ -7,10 +7,12 @@ import type { NextConfig } from "next";
 // - script-src uses 'self' only; third-party scripts (GA4, Stripe, PayPal) will be added here
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline';
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com;
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: blob: https:;
-  font-src 'self';
+  font-src 'self' https://js.stripe.com;
+  frame-src https://js.stripe.com;
+  connect-src 'self' https://api.stripe.com https://hooks.stripe.com https://m.stripe.com https://m.stripe.network;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
@@ -46,7 +48,8 @@ const securityHeaders = [
   // ── Disable browser features we don't use ──────────────────────────────────
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=(self), usb=()",
+    value:
+      'camera=(), microphone=(), geolocation=(), payment=(self "https://js.stripe.com"), usb=()',
   },
   // ── Content Security Policy ────────────────────────────────────────────────
   {
@@ -83,9 +86,11 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Image domains will be added as eBay/Cloudinary are integrated
   images: {
-    remotePatterns: [],
+    remotePatterns: [
+      { protocol: "https", hostname: "i.ebayimg.com" },
+      { protocol: "https", hostname: "galleryplus.ebayimg.com" },
+    ],
   },
 };
 
