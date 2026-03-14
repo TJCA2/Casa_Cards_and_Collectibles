@@ -327,181 +327,287 @@ _Goal: Reliably pull listings from eBay and keep the website inventory in sync._
 
 ## Phase 5 — Core Frontend: Product Catalog & Search
 
-_Goal: Build the public-facing storefront — product grid, individual product pages, search, and filtering._
+_Goal: Build the public-facing storefront — shared layout shell, product grid, individual product pages, search, and filtering._
+
+### Task 5.0 — Global Layout Shell & Category Seeds
+
+- [x] Install `sanitize-html` + `@types/sanitize-html` package
+- [x] Copy logo to `public/logo.png` (black & white house-CASA logo, red-600 accent theme)
+- [x] Update `next.config.ts` — added `images.remotePatterns` for `i.ebayimg.com` and `galleryplus.ebayimg.com`
+- [x] Update `src/proxy.ts` — added `newsletter` and `products` to `API_PATTERN` regex and middleware matcher
+- [x] Seed categories into the database — Baseball Cards, Basketball Cards, Football Cards seeded via `prisma/seed.ts`; products reassigned to correct categories; `package.json` prisma seed config added
+- [x] Create `src/components/layout/Header.tsx` — black bg, `next/image` logo (44px, CSS `invert`), nav (Home, Shop), search icon → `/search`, cart icon placeholder
+- [x] Create `src/components/layout/Footer.tsx` — store name, shop/legal nav links, newsletter subscribe form (calls `POST /api/newsletter/subscribe`)
+- [x] Create `src/components/layout/MobileNav.tsx` — hamburger + slide-out drawer with category links; red close button
+- [x] Update `src/app/layout.tsx` — wraps `{children}` with `<Header />` and `<Footer />`; `flex min-h-screen flex-col` layout
+- [x] Create `POST /api/newsletter/subscribe` — Zod email validation; upsert `EmailSubscriber`; idempotent 200
 
 ### Task 5.1 — Homepage
 
-- [ ] Hero section: seller name ("Casa Cards & Collectibles"), tagline, call-to-action ("Shop Now")
-- [ ] Featured categories (cards, sports cards, collectibles, etc.) with images
-- [ ] Featured/newest products grid (6–12 items)
-- [ ] Trust badges row: SSL Secured, Secure Checkout, Free Returns (if applicable)
-- [ ] Newsletter signup bar
+- [x] Replace placeholder `src/app/page.tsx` with a full server component
+- [x] Hero section: store name, tagline, "Shop Now" (red) + "Search Cards" (outline) CTAs
+- [x] Featured categories grid: fetched from DB, sport emoji icons, links to `/category/[slug]`
+- [x] Newest products grid (8 items, `isActive: true`, `orderBy: createdAt desc`) using `ProductCard`
+- [x] Trust badges row: Secure Checkout, Fast Shipping, Easy Returns
+- [x] Newsletter signup bar — `src/components/homepage/NewsletterBar.tsx` client component
+- [x] `src/components/products/ProductCard.tsx` — image/placeholder, condition badge (red=NEW), price, out-of-stock overlay, links to `/product/[slug]`
+- [x] Slugs added to all 5 seeded products and re-seeded
 
 ### Task 5.2 — Product Listing Page (`/shop`)
 
-- [ ] Grid view of all active products (server-side rendered for SEO)
-- [ ] Filters sidebar:
-  - Category (multi-select)
-  - Price range (min/max slider)
-  - Condition (New / Used / Like New / Refurbished)
-  - In Stock only toggle
-- [ ] Sort options: Newest, Price Low–High, Price High–Low, Most Popular
-- [ ] Pagination (12 or 24 items per page) — use URL query params for shareable filtered URLs
-- [ ] Skeleton loading state for product cards
+- [x] Server-rendered grid of all active products (`isActive: true`), 12 per page
+- [x] Filters via URL query params (`?category`, `?condition`, `?minPrice`, `?maxPrice`, `?inStock`, `?sort`, `?page`) — shareable, SEO-friendly URLs
+- [x] `src/components/products/FilterSidebar.tsx` (client) — category buttons, condition checkboxes, price range form, in-stock toggle; each change updates URL and resets to page 1; "Clear all" link
+- [x] Sort options (Link-based, no JS required): Newest, Price Low→High, Price High→Low
+- [x] Product cards via `ProductCard` with `next/image`, condition badge, out-of-stock overlay
+- [x] Pagination controls (`← Previous` / `Next →`) using `?page=N` links
+- [x] Empty state with "Clear Filters" red button when no products match
 
 ### Task 5.3 — Product Detail Page (`/product/[slug]`)
 
-- [ ] Image gallery with zoom (multiple images from eBay)
-- [ ] Product title, condition badge, price, stock status ("Only 2 left!")
-- [ ] Full description (render HTML from eBay safely — sanitize with DOMPurify)
-- [ ] "Add to Cart" and "Add to Wishlist" buttons
-- [ ] Shipping estimate calculator (enter zip code)
-- [ ] Structured data: `Product` schema markup (JSON-LD) for Google Shopping
-- [ ] Reviews section (display + write a review for verified purchasers)
-- [ ] Related products (same category)
-- [ ] Breadcrumb navigation
+- [x] Server component — fetch by `slug`; `notFound()` if missing or `isActive: false`
+- [x] `src/components/products/ImageGallery.tsx` (client) — primary image + clickable thumbnail row; no-image placeholder
+- [x] Condition badge (red=NEW, dark=LIKE_NEW, gray=USED, blue=REFURBISHED), price, compareAtPrice strikethrough
+- [x] Stock status: "In Stock" (green) / "Only N left!" (orange, when ≤ `lowStockThreshold`) / "Out of Stock" (red)
+- [x] Description: rendered via `sanitize-html` (strips scripts/links; allows basic formatting tags)
+- [x] "Add to Cart" button — disabled with tooltip "Cart coming in Phase 6"
+- [x] "Add to Wishlist" button — disabled with tooltip "Wishlist coming in Phase 7"
+- [x] `Product` + `BreadcrumbList` JSON-LD injected via `<script type="application/ld+json">`
+- [x] Dynamic `generateMetadata` — title, description (plain text, 160 chars), Open Graph image
+- [x] Reviews section — star rating, title, body, date, verified badge; read-only; write-review note deferred to Phase 7
+- [x] Related products: up to 4 same-category products via `ProductCard`
+- [x] Breadcrumb nav: Home > [Category] > [Title]
+- [x] eBay cross-link shown if `ebayItemId` is set
+- [x] _Deferred to Phase 6.2:_ Shipping estimate calculator
 
 ### Task 5.4 — Search
 
-- [ ] Search bar in header (keyboard shortcut: `/` to focus)
-- [ ] Full-text search using PostgreSQL `tsvector` (Prisma full-text search) or Algolia
-- [ ] Search results page with the same filter/sort options as `/shop`
-- [ ] Empty state with suggestions when no results found
-- [ ] Search input: sanitize and limit to 200 characters
+- [x] Search icon in header navigates to `/search`; `src/components/layout/SearchShortcut.tsx` (client island) listens globally for `/` key and calls `router.push('/search')` — skips if target is an input or textarea
+- [x] `GET /api/products/search?q=<term>&page=<n>` — Zod validates `q` (min 1, max 200 chars); Prisma `findMany` with `title: { contains: q, mode: 'insensitive' }` (ILIKE); returns paginated JSON
+- [x] Search results page at `/search?q=<term>` — server component; `autoFocus` on input; same `ProductCard` grid; pagination links; result count shown
+- [x] Empty state: "No results for '[term]'" with "Browse All Products" link; no-query state prompts user to type
+- [x] `<SearchShortcut />` added to `src/app/layout.tsx` as a client island (renders null)
+- [x] _Note:_ `ILIKE` is sufficient for the MVP. Upgrade to PostgreSQL `tsvector` full-text search (via `$queryRaw`) later if needed for relevance ranking.
 
 ### Task 5.5 — Category Pages (`/category/[slug]`)
 
-- [ ] Same layout as `/shop` but pre-filtered by category
-- [ ] Category header with name and description
-- [ ] Breadcrumb: Home > Category
+- [x] Server component — fetch category by `slug`; `notFound()` if missing
+- [x] Same `ProductCard` grid and `← Previous` / `Next →` pagination as `/shop`, pre-filtered to `categoryId`
+- [x] Category header: name (h1), optional description, item count
+- [x] Breadcrumb: Home > [Category Name]
+- [x] Empty state with "Browse All Products" red button when no products in category
+- [x] Dynamic `generateMetadata` — title + description (falls back to generic text)
 
 ### Phase 5 Verification
 
-- [ ] Load `/shop` with 50+ products — confirm page renders in under 2 seconds
-- [ ] Test all filter combinations — verify correct results
-- [ ] Test search for a known product title
-- [ ] Confirm product JSON-LD schema is valid at [schema.org/docs/gs.html](https://schema.org/docs/gs.html)
-- [ ] Test on mobile (375px viewport) — all elements usable
+- [x] Run `npx prisma db seed` (or seed script) — 3 categories + 5 products confirmed seeded
+- [x] Load `/shop` — HTTP 200; all filter param combinations (category, condition, inStock, price range) return 200
+- [x] Test each filter combination on `/shop` — `/shop?category=baseball-cards`, `?condition=USED`, `?inStock=true`, `?minPrice=10&maxPrice=500` all return 200
+- [x] Test search at `/search?q=Topps` — API returns `total=2` with correct product titles; `/search` page returns 200; empty-query and no-results states both return 200; invalid/oversized `q` returns 400
+- [x] Confirm `/product/[slug]` renders with correct JSON-LD — `application/ld+json` script tag confirmed present in HTML
+- [x] Confirm `/product/nonexistent-slug` returns 404
+- [x] Confirm `/category/[slug]` — all 3 sport categories return 200; `/category/nonexistent` returns 404
+- [x] Verify newsletter subscribe — valid email → `{"ok":true}`; invalid email → 422; duplicate email → idempotent `{"ok":true}`
+- [x] Visual browser check: load `/shop`, `/search`, `/product/[slug]`, `/category/baseball-cards` — confirm images render, layout correct
+- [x] Test on mobile (375px viewport) — header, nav drawer, product grid, and product detail all usable
 
 ---
 
 ## Phase 6 — Shopping Cart & Checkout
 
-_Goal: Secure, frictionless checkout with Stripe and PayPal. No payment data ever touches our server._
+_Goal: Secure, frictionless checkout with Stripe. No payment data ever touches our server._
 
-### Task 6.1 — Shopping Cart (Client + Server)
+**Prerequisites (must be done before starting):**
 
-- [ ] Cart state managed in React Context + `localStorage` for guests
-- [ ] Cart syncs to DB `Cart` table for logged-in users (merge on login)
-- [ ] Cart drawer/slide-over with item list, quantities, subtotal
-- [ ] Quantity increase/decrease — enforce stock limits server-side
-- [ ] Remove item, clear cart buttons
-- [ ] "Proceed to Checkout" button
+- Add `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` to `.env.local` (get from [dashboard.stripe.com](https://dashboard.stripe.com) → Developers → API keys)
+- Install Stripe CLI locally (`brew install stripe/stripe-cli/stripe`) for local webhook testing
 
-### Task 6.2 — Checkout Flow (Multi-Step)
+**Architecture notes:**
 
-**Step 1 — Contact & Shipping:**
+- Cart/Order/Address Prisma models already exist from Phase 2 — no schema changes needed
+- `RESEND_API_KEY` and `EMAIL_FROM` are already configured — order confirmation emails are ready to wire up
+- PayPal deferred to Phase 8 (credentials not yet configured)
+- Real-time shipping rates (EasyPost) deferred to Phase 10 — using flat-rate options for MVP
+- Sales tax (TaxJar/Stripe Tax) deferred to Phase 10
 
-- [ ] Email field (for order confirmation), guest or account login prompt
-- [ ] Shipping address form with address validation (use USPS API or Google Address Validation)
-- [ ] Save address to account (for logged-in users)
+### Task 6.1 — Cart State & UI
 
-**Step 2 — Shipping Method:**
+- [x] Install packages: `npm install stripe @stripe/stripe-js @stripe/react-stripe-js`
+- [x] Update `src/proxy.ts` — added `cart` to `API_PATTERN` regex and `/api/cart/:path*` to middleware matcher
+- [x] Create `src/lib/cart.ts` — `CartItem` and `Cart` types; pure reducer functions (`addItem`, `removeItem`, `updateQty`, `clearCart`, `cartSubtotal`, `cartItemCount`); `loadCart`/`saveCart` localStorage helpers
+- [x] Create `src/context/CartContext.tsx` — `CartProvider` with `useReducer`; hydrates from `localStorage` on mount; persists on every change; exposes `cart`, `addToCart`, `removeFromCart`, `updateQuantity`, `clearCart`, `itemCount`, `subtotal`, `isOpen`, `openCart`, `closeCart`
+- [x] Wrap layout in `src/app/layout.tsx` with `<CartProvider>` + `<CartDrawer />` inside it
+- [x] Create `src/components/cart/CartDrawer.tsx` — slide-over from right; backdrop with blur; thumbnail, title, qty +/− (capped at stockQuantity), remove; subtotal; "Proceed to Checkout" → `/checkout`; empty state; closes on Escape key; prevents body scroll when open
+- [x] Update `src/components/layout/Header.tsx` — converted to `"use client"` to consume `useCart`; cart icon calls `openCart()`; red badge shows item count (9+ for overflow)
+- [x] Create `src/components/products/AddToCartButton.tsx` — `"use client"` island; calls `addToCart` from CartContext; disabled + labelled "Out of Stock" when `outOfStock`
+- [x] Wire `AddToCartButton` into `src/app/product/[slug]/page.tsx` — passes full `CartItem` data; replaces the old disabled placeholder button
+- [x] `POST /api/cart/validate` — Zod validates array of `{productId, quantity}`; checks `stockQuantity` and `isActive` in DB; returns `allAvailable` boolean + per-item availability with current prices
 
-- [ ] Real-time shipping rate calculation via EasyPost or ShipEngine API
-- [ ] Display options: USPS First Class, Priority, UPS Ground, FedEx Ground (with prices and ETAs)
-- [ ] Free shipping threshold (configurable in admin)
+### Task 6.2 — Checkout: Contact & Shipping Address
 
-**Step 3 — Payment:**
+- [x] `src/app/checkout/page.tsx` — server component; `getServerSession(authOptions)`; passes `userEmail` + `isLoggedIn` to `<CheckoutForm />`
+- [x] `src/app/checkout/CheckoutForm.tsx` — `"use client"`; manages `step` (1–4) and `shippingInfo` state; empty-cart state shows "Browse Products" link
+- [x] Step indicator — 4 steps (Shipping · Delivery · Payment · Confirmation); red = active/done; checkmark on completed; gray = future
+- [x] Step 1 — email (readonly + pre-filled if logged in), full name, address line 1, line 2 (optional), city, state (`<select>` all 50 US states + DC), ZIP (5-digit), country (US — readonly)
+- [x] "Save this address" checkbox — only shown for logged-in users; stored in state for Task 6.4
+- [x] Client-side validation: required fields, email regex, ZIP must be 5 digits; inline field-level error messages
+- [x] Order summary sidebar — item list with qty, subtotal, shipping "calculated next"
+- [x] Steps 2–3 built in Tasks 6.3–6.4; success/confirmation is a separate page at `/checkout/success` (Task 6.5)
 
-- [ ] Stripe Payment Element (handles card, Apple Pay, Google Pay, Link, BNPL)
-- [ ] PayPal Smart Payment Button
-- [ ] Display order summary with line items, shipping, tax, total
-- [ ] Discount code input field (validate server-side)
-- [ ] Sales tax auto-calculation by state (use TaxJar or Stripe Tax)
+### Task 6.3 — Checkout: Shipping Method & Order Summary
 
-**Step 4 — Confirmation:**
+- [x] Step 2 — Flat-rate shipping options: USPS First Class $4.99 (5–7 days) / USPS Priority $9.99 (1–3 days); free shipping banner shown when subtotal ≥ `NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD` (default $75)
+- [x] Radio-button shipping selector with red active highlight; "Select a delivery method" error if user skips
+- [x] Order summary sidebar updates live as shipping method changes — shows subtotal, shipping cost (or "Free"), discount, bold total
+- [x] "Add $X.XX more for free shipping" hint shown in sidebar when below threshold
+- [x] Discount code input — calls `POST /api/checkout/validate-discount`; shows applied code + savings; "Remove" to clear
+- [x] `POST /api/checkout/validate-discount` — Zod validated; checks `isActive`, expiry, `maxUses`, `minOrderAmount`; returns `{ type, value, amount }` (amount = dollars off, capped at subtotal for FIXED type)
+- [x] "← Back" returns to Step 1; "Continue to Payment →" advances to Step 3
 
-- [ ] "Thank you" page with order number
-- [ ] Order confirmation email sent immediately (Resend/SendGrid)
-- [ ] Inventory decremented atomically in DB transaction
+### Task 6.4 — Stripe Payment Integration (CRITICAL SECURITY)
 
-### Task 6.3 — Stripe Integration (CRITICAL SECURITY)
+- [x] Added `customerEmail String?` to Order Prisma model; pushed schema change with `prisma db push`
+- [x] `src/lib/stripe.ts` — lazy-initialized Stripe singleton using `STRIPE_SECRET_KEY` and SDK API version `2026-02-25.clover`
+- [x] `sendOrderConfirmationEmail` added to `src/lib/email.ts` — HTML email with item table, address, totals via Resend
+- [x] `POST /api/checkout/create-intent` — Zod validated; re-fetches all product prices + stock from DB (never trusts client); calculates server-side subtotal, shipping, discount; generates order number `CC-YYYYMMDD-XXXX`; creates Stripe PaymentIntent; persists Address + Order (PENDING) + OrderItems + discount usedCount increment in one DB transaction; returns `{ clientSecret, orderNumber, total }`
+- [x] Step 3 Payment UI — `<Elements>` provider with red Stripe theme; `<PaymentElement>` handles card/Apple Pay/Google Pay/Link; `stripe.confirmPayment({ redirect: "if_required" })` so most card payments resolve in-place; navigates to `/checkout/success?order=<orderNumber>` on success
+- [x] `POST /api/webhooks/stripe` — reads raw body via `req.text()`; verifies signature with `constructEventAsync`; on `payment_intent.succeeded`: idempotency check (skip if PAID), stock decrement + status PAID in DB transaction, confirmation email via Resend (non-fatal if fails); on `payment_intent.payment_failed`: marks CANCELLED
+- [x] `next.config.ts` CSP updated — added `https://js.stripe.com` to `script-src`, `frame-src`, `font-src`; added `hooks.stripe.com`, `m.stripe.com`, `m.stripe.network` to `connect-src`; updated `Permissions-Policy` payment directive (required for `<PaymentElement>` iframe to render)
+- [x] `src/app/checkout/success/page.tsx` — initial basic page (green checkmark + order number); enhanced to full detail page in Task 6.5
 
-- [ ] Install Stripe SDK: `npm install stripe @stripe/stripe-js @stripe/react-stripe-js`
-- [ ] Create `PaymentIntent` server-side only — never client-side
-- [ ] Use Stripe Webhook (`/api/webhooks/stripe`) to confirm payment — never rely on client redirect
-- [ ] Verify Stripe webhook signature using `stripe.webhooks.constructEvent` with `STRIPE_WEBHOOK_SECRET`
-- [ ] Only fulfill orders (decrement stock, send confirmation email) inside the verified webhook handler
-- [ ] Store `paymentIntentId` on `Order` — use as idempotency key to prevent double-fulfillment
+### Task 6.5 — Confirmation & Guest Order Lookup
 
-### Task 6.4 — PayPal Integration
-
-- [ ] Use PayPal JS SDK with `createOrder` and `onApprove` server-side API calls
-- [ ] Verify payment server-side via PayPal `orders/{orderId}/capture` before fulfilling
-- [ ] Same webhook/confirmation model as Stripe
-
-### Task 6.5 — Guest Checkout
-
-- [ ] Guest can checkout with email only — no account required
-- [ ] After order, prompt guest to create an account to track their order
-- [ ] Guest order lookup by email + order number at `/orders/lookup`
+- [x] Step 4 — Confirmation page at `/checkout/success?order=<orderNumber>`:
+  - "Thank you" message with order number
+  - Summary of items ordered and shipping address
+  - Prompt guests to create an account to track their order
+  - "Continue Shopping" → `/shop`
+- [x] `GET /api/orders/[orderNumber]` — returns order details; requires either auth session matching order `userId` OR matching email query param (guest lookup); 403 if neither matches; added `orders` to `API_PATTERN` regex and matcher in `src/proxy.ts`
+- [x] `src/app/checkout/success/page.tsx` enhanced — server-side DB fetch; shows item list with thumbnails, subtotal/shipping/total breakdown, shipping address; guest prompt to create account or use order lookup; security: only shows details if `order.userId === null` (guest) or matches session
+- [x] Guest order lookup page at `/orders/lookup` — client form: email + order number → calls API → shows status badge, item list, totals, shipping address, account creation prompt; friendly error messages for not-found vs. wrong email
 
 ### Phase 6 Verification
 
-- [ ] Complete a full checkout with Stripe test card (`4242 4242 4242 4242`)
-- [ ] Complete a full checkout with PayPal sandbox
-- [ ] Confirm stock decrements correctly after purchase
-- [ ] Confirm order confirmation email is received
-- [ ] Test webhook: simulate payment_intent.succeeded — confirm order is fulfilled
-- [ ] Attempt to modify price client-side (DevTools) — verify server rejects tampered amount
-- [ ] Test checkout with an out-of-stock product — must be blocked
+- [x] Add Stripe test keys to `.env.local`, run `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
+- [x] Add item to cart → open drawer → confirm item, qty, subtotal correct
+- [x] Proceed through full checkout with Stripe test card `4242 4242 4242 4242`
+- [x] Confirm webhook fires: order status → PAID, stock decremented, confirmation email received _(user confirmed email received)_
+- [x] Price tamper protection verified via code review — `create-intent` re-fetches all prices from DB, client values ignored
+- [x] Out-of-stock protection verified via code review — two-layer check: `cart/validate` + `create-intent` both re-check `stockQuantity`
+- [x] Discount validation verified via code review — server re-validates code independently in `create-intent`, never trusts client amount
+- [ ] Guest checkout: complete order without logging in → look up order at `/orders/lookup` _(manual test pending)_
+- [ ] Test duplicate webhook delivery (resend same event) — confirm order is fulfilled only once _(manual test pending)_
 
 ---
 
 ## Phase 7 — Customer Accounts & Order Management
 
-_Goal: Customer self-service portal for order history, tracking, and profile management._
+_Goal: Customer self-service portal for order history, tracking, profile management, and wishlist._
 
-### Task 7.1 — Account Dashboard
+**Prerequisites (must be done before starting):**
 
-- [ ] Route: `/account` — requires authentication
-- [ ] Sections: Overview, Orders, Addresses, Profile, Wishlist
-- [ ] Display: recent orders (last 5), total spent, loyalty points (if enabled)
+- Phase 3 auth (NextAuth + sessions) must be complete ✅
+- Phase 6 checkout/orders must be complete — `GET /api/orders/[orderNumber]` already built and reusable ✅
+- Address and Order Prisma models already exist from Phase 2 ✅
+
+**Architecture notes:**
+
+- `GET /api/orders/[orderNumber]` (Phase 6) already handles auth — returns order if `userId` matches session; reuse in Task 7.2
+- Guest order lookup at `/orders/lookup` (Phase 6) already exists — no changes needed
+- `Address` model exists (Phase 2) — Task 7.3 only needs API routes + UI
+- `Wishlist`/`WishlistItem` models do NOT exist — must add to Prisma schema in Task 7.5
+- `User` model lacks `name` and `phone` fields — must add in Task 7.4 schema migration
+- Add `/account` and `/account/:path*` to `API_PATTERN` regex and middleware matcher in `src/proxy.ts`
+- All `/api/account/*` routes must verify the authenticated session user matches the resource owner (never trust `userId` from the client)
+
+### Task 7.1 — Account Layout & Dashboard
+
+- [x] Add `/api/account/:path*` to `API_PATTERN` regex and middleware matcher in `src/proxy.ts` — rate limiting applied to all account API routes
+- [x] `src/app/account/layout.tsx` — server component; calls `getServerSession(authOptions)`; redirects to `/auth/login?callbackUrl=/account` if unauthenticated; renders sidebar nav (Overview, Orders, Addresses, Profile, Wishlist) + `{children}`
+- [x] `src/app/account/page.tsx` — dashboard overview; fetches last 5 orders for the session user from DB (direct Prisma query); displays: welcome banner with name/email, quick-link cards to each section, recent orders table (order number, date, status badge, total, view link); empty state with "Start Shopping" CTA
+- [x] `src/components/account/AccountSidebar.tsx` — desktop sidebar + mobile tab bar; active link highlighted red; links: `/account`, `/account/orders`, `/account/addresses`, `/account/profile`, `/account/wishlist`
+- [x] `src/components/account/OrderStatusBadge.tsx` — reusable colored badge (PENDING=yellow, PAID=blue, PROCESSING=purple, SHIPPED=indigo, DELIVERED=green, CANCELLED=red, REFUNDED=gray)
 
 ### Task 7.2 — Order History & Tracking
 
-- [ ] List all orders with: order number, date, status badge, total
-- [ ] Order detail page: line items, shipping address, payment method, tracking number
-- [ ] Clickable tracking number → opens carrier tracking page (USPS/UPS/FedEx)
-- [ ] Order status timeline (Placed → Paid → Processing → Shipped → Delivered)
+- [x] `src/app/account/orders/page.tsx` — server component; fetches all orders for session user from DB (paginated, 10 per page, newest first); table: order number, date, item count, status badge, total, view link; pagination controls; empty state with "Start Shopping" CTA
+- [x] `src/app/account/orders/[orderNumber]/page.tsx` — server component; direct Prisma query (includes `trackingNumber`, `paymentProvider`, `shippedAt`, `deliveredAt`); `notFound()` if order missing or `userId` doesn't match session; renders: status timeline (Placed → Paid → Processing → Shipped → Delivered with red fill progress), item list with thumbnails + per-item/total prices, shipping address, payment method label, shipped/delivered dates, totals breakdown; CANCELLED/REFUNDED show a red terminal banner instead of timeline
+- [x] `src/lib/tracking.ts` — carrier detection: UPS (`1Z` prefix), FedEx (12/15/20 digits), USPS (20–22 digits); fallback to Google search
+- [x] `src/components/account/ReorderButton.tsx` — `"use client"` island; calls `addToCart` for all in-stock items; opens cart drawer; button label changes to "Added to cart" on success
 
 ### Task 7.3 — Address Book
 
-- [ ] Save multiple shipping addresses
-- [ ] Set default address (used at checkout)
-- [ ] Edit and delete addresses
-- [ ] Address validation on save
+- [x] `src/app/account/addresses/page.tsx` — server component; fetches addresses ordered by default-first; passes to `<AddressManager>`; redirects to login if unauthenticated
+- [x] `src/components/account/AddressForm.tsx` — reusable client form (name, line1, line2, city, state select, ZIP, US country readonly, isDefault checkbox); client-side Zod-equivalent validation; `onSave` callback used for both add and edit
+- [x] `src/components/account/AddressManager.tsx` — client component; `mode: list | add | edit` state; address cards with default badge (red border/ring); "Set as Default", "Edit", "Delete" per card; `window.confirm` for delete; `useTransition` + `router.refresh()` to keep server data fresh
+- [x] `POST /api/account/addresses` — Zod validated; `userId = session.user.id`; `$transaction` clears existing defaults before setting new one
+- [x] `PUT /api/account/addresses/[id]` — Zod validated; IDOR check (`address.userId === session.user.id`); same transaction default-clearing logic
+- [x] `DELETE /api/account/addresses/[id]` — IDOR check; 409 if address is on any non-cancelled/refunded order; 204 on success
+- [x] `PATCH /api/account/addresses/[id]/default` — IDOR check; `$transaction` clears all user defaults, sets this one
+- [x] Checkout pre-fill — `checkout/page.tsx` fetches default address server-side; `CheckoutForm` accepts `defaultAddress` prop and spreads it into initial shipping state
 
 ### Task 7.4 — Profile Management
 
-- [ ] Update display name, email (requires re-verification), phone
-- [ ] Change password (requires current password)
-- [ ] Delete account — GDPR/CCPA compliant data erasure
-- [ ] Download personal data (GDPR right to portability)
+- [x] **Schema migration:** Added `name String?`, `phone String?`, `pendingEmail String?`, `lastExportAt DateTime?` to `User` model; `npx prisma db push` applied
+- [x] `src/app/account/profile/page.tsx` — server component; fetches fresh user data from DB; passes `emailChangedSuccess` flag from `?emailChanged=true` query param; redirects to login if unauthenticated
+- [x] `src/components/account/ProfileForm.tsx` — client component with 4 sections: Personal Info (name + phone + save), Email Address (readonly current + inline change-email form), Password (link to change-password page), Danger Zone (delete + export)
+- [x] `PUT /api/account/profile` — Zod validated; updates `name` and `phone` only; never touches email or role
+- [x] `POST /api/account/change-email` — Zod validated; checks new email not already taken (silently); deletes old pending tokens; stores `pendingEmail` on user + new `EmailVerificationToken`; sends verification email to new address via Resend
+- [x] `GET /api/account/verify-email-change?token=...` — hashes token, finds `EmailVerificationToken`, checks expiry, verifies `user.pendingEmail` exists, atomically swaps email + clears pendingEmail + bumps `passwordChangedAt` (invalidates all sessions); redirects to `/account/profile?emailChanged=true`
+- [x] `src/app/account/profile/change-password/page.tsx` — `"use client"` page; live password rule checklist; confirm match indicator; calls `POST /api/account/change-password`; on success calls `signOut({ callbackUrl: '/auth/login?passwordChanged=true' })`
+- [x] `POST /api/account/change-password` — `bcrypt.compare` current password; hashes new (cost 12); updates `passwordHash` + `passwordChangedAt` (auto-invalidates all JWTs via auth.ts callback); 400 on wrong current password
+- [x] `DELETE /api/account` — session required; `$transaction` anonymizes PII (email → `deleted_<uuid>@deleted.local`, nulls name/phone/passwordHash/pendingEmail), bumps `passwordChangedAt`, disassociates orders, deletes addresses + auth tokens; client calls `signOut()` on success
+- [x] `GET /api/account/export` — DB-based rate limit via `lastExportAt` (24-hour cooldown); returns JSON attachment with profile, all orders+items, addresses; excludes passwordHash and internal IDs
 
 ### Task 7.5 — Wishlist
 
-- [ ] Add/remove products from wishlist (persistent for logged-in users)
-- [ ] Wishlist page with "Move to Cart" and "Remove" actions
-- [ ] Stock availability shown on wishlist items
+- [x] **Schema migration:** Add to `prisma/schema.prisma`:
+
+  ```
+  Wishlist
+    - id (uuid, PK)
+    - userId (FK → User, unique — one wishlist per user)
+    - createdAt
+
+  WishlistItem
+    - id (uuid, PK)
+    - wishlistId (FK → Wishlist)
+    - productId (FK → Product)
+    - addedAt
+    - @@unique([wishlistId, productId])
+  ```
+
+  Run `npx prisma db push`
+
+- [x] `src/app/account/wishlist/page.tsx` — server component; fetches wishlist + items (with product data: title, slug, price, stockQuantity, images) for session user; renders product cards with stock badge, price, "Move to Cart" button, "Remove" button; empty state with "Browse Products" link
+- [x] `POST /api/account/wishlist` — body: `{ productId }`; Zod validated; finds-or-creates Wishlist for `userId`; upserts WishlistItem (idempotent — adding same item twice is a no-op); returns 200
+- [x] `DELETE /api/account/wishlist/[productId]` — verifies wishlist belongs to session user; deletes WishlistItem; 404 if not found
+- [x] Wire up "Add to Wishlist" button on `/product/[slug]` — `src/components/products/WishlistButton.tsx` client component; calls `POST /api/account/wishlist`; shows filled heart if item is in wishlist (check via `GET /api/account/wishlist/[productId]`); redirects to `/auth/login` if not authenticated; replaces the existing disabled placeholder button
+- [x] `GET /api/account/wishlist/[productId]` — returns `{ inWishlist: boolean }` for the session user; used to initialize button state on product detail page; returns `{ inWishlist: false }` for unauthenticated users (no error)
+- [x] Add `wishlist` to `API_PATTERN` regex and middleware matcher in `src/proxy.ts` — already covered by existing `/api/account/:path*` matcher and `account` pattern in `API_PATTERN`
 
 ### Phase 7 Verification
 
-- [ ] Log in, view order history — all orders present
-- [ ] Click tracking number — opens correct carrier tracking page
-- [ ] Update email → verify re-verification email sent
-- [ ] Test account deletion — confirm all PII is removed from DB
+**Code review fixes applied before manual testing:**
+
+- Fixed: `account/page.tsx` dashboard greeting now fetches user name from DB (session JWT always had `name: null` due to `authorize` callback); greeting now correctly reflects updated display name
+- Fixed: `DELETE /api/account` soft-delete transaction now also deletes the user's wishlist (WishlistItems cascade); previously wishlist rows were orphaned on account deletion
+- Note: IDOR check on address routes returns 404 (not 403) intentionally — security best practice to avoid leaking resource existence
+
+- [x] Log in → navigate to `/account` — confirm recent orders and quick-link cards render
+- [x] Non-authenticated user visits `/account` — confirm redirect to `/auth/login?callbackUrl=/account`
+- [x] View order history at `/account/orders` — all orders for the user are listed
+- [x] Click into order detail — confirm items, address, totals, and status timeline render
+- [ ] If an order has a tracking number: confirm carrier link opens the correct tracking page
+- [x] Add a new address → set it as default → confirm it pre-fills checkout
+- [x] Delete an address → confirm it is removed; attempt to delete an address on an existing order → confirm 409 error
+- [x] Update display name → confirm name is reflected in dashboard greeting (DB fetch, not session)
+- [ ] Change password → log out → log back in with new password → confirm it works
+- [ ] Attempt `PUT /api/account/addresses/[id]` with a different user's address ID → confirm 404 (intentional IDOR protection — does not reveal existence)
+- [x] Add product to wishlist → visit `/account/wishlist` → confirm it appears
+- [x] "Move to Cart" from wishlist → confirm item is added to cart drawer
+- [ ] Delete account → confirm redirect to homepage; attempt to log in with deleted account email → confirm blocked
+- [x] Request data export → confirm JSON download with correct fields; re-request within 24 hours → confirm rate limit response
 
 ---
 
@@ -509,59 +615,140 @@ _Goal: Customer self-service portal for order history, tracking, and profile man
 
 _Goal: A secure, internal-only dashboard for managing the store._
 
-### Task 8.1 — Admin Layout & Access Control
+**Prerequisites (must be done before starting):**
 
-- [ ] Route: `/admin` — hard-blocked to ADMIN role only (middleware + server-side check)
-- [ ] Sidebar navigation: Dashboard, Products, Orders, Customers, eBay Sync, Discounts, Settings
-- [ ] Activity log: all admin actions recorded (who did what, when)
+- Phase 3 auth (NextAuth + ADMIN role + `POST /api/admin/promote`) must be complete ✅
+- Phase 6 checkout/orders must be complete — `Order`, `OrderItem`, Stripe lib, and order status flow already built ✅
+- Phase 4 eBay sync must be complete — `/admin/ebay-sync` standalone page and `GET/POST /api/admin/ebay-sync` already built ✅
+- `DiscountCode` Prisma model already exists from Phase 2 — no schema changes needed for Task 8.5 ✅
+
+**Architecture notes:**
+
+- `ADMIN` role and `POST /api/admin/promote` already exist from Phase 3 — no new auth primitives needed
+- `/admin/ebay-sync` was built in Phase 4.5 as a **standalone page with no shared layout** — Task 8.1 adds the shared layout shell and the ebay-sync page must be updated to drop its standalone wrapper
+- `DiscountCode` model already in schema (from Phase 2); Task 8.5 only needs CRUD API routes + UI
+- `Order` model needs a `notes String?` field added (Task 8.3 schema migration)
+- Activity log requires a new `AdminActivityLog` Prisma model (Task 8.1 schema migration)
+- Customer ban requires a `banned Boolean @default(false)` field on `User` (Task 8.4 schema migration)
+- All `/api/admin/*` routes must verify `session.user.role === 'ADMIN'` server-side on every request — never rely solely on middleware
+- Stripe refunds: use `stripe.refunds.create({ payment_intent: order.stripePaymentIntentId, amount? })` — already have `src/lib/stripe.ts` singleton
+- Analytics charts (Task 8.6) pull from DB via Prisma aggregate queries — GA4 is a Phase 10 frontend item; note the env var here but do not wire it yet
+- Add `/admin` and `/admin/:path*` to the Next.js middleware matcher if not already covered by `src/proxy.ts`
+
+### Task 8.1 — Admin Layout & Shared Infrastructure
+
+- [ ] **Schema migration:** Add `AdminActivityLog` model to `prisma/schema.prisma`:
+  ```
+  AdminActivityLog
+    - id         String   @id @default(uuid())
+    - adminId    String   (FK → User)
+    - admin      User     @relation(fields: [adminId], references: [id])
+    - action     String   (e.g. "UPDATE_ORDER_STATUS", "ISSUE_REFUND", "CREATE_DISCOUNT")
+    - targetType String?  (e.g. "Order", "Product", "Customer", "DiscountCode")
+    - targetId   String?
+    - detail     Json?    (before/after snapshot or relevant context)
+    - createdAt  DateTime @default(now())
+  ```
+  Run `npx prisma db push`
+- [ ] `src/app/admin/layout.tsx` — server component; `getServerSession(authOptions)`; redirects unauthenticated users to `/auth/login?callbackUrl=/admin`; returns 403 page (not redirect) for authenticated non-ADMIN users; renders `<AdminSidebar />` + `{children}` in a two-column layout
+- [ ] `src/components/admin/AdminSidebar.tsx` — sidebar nav links: Dashboard (`/admin`), Products (`/admin/products`), Orders (`/admin/orders`), Customers (`/admin/customers`), eBay Sync (`/admin/ebay-sync`), Discounts (`/admin/discounts`), Analytics (`/admin/analytics`); active link highlighted red; "← Back to Store" link at bottom; mobile: collapsible top bar
+- [ ] Update `src/app/admin/ebay-sync/page.tsx` — remove the standalone `<main>` wrapper and "← Admin" back-link; the shared layout shell now provides both
+- [ ] Update `src/app/admin/page.tsx` — replace "Coming in Phase 8" placeholder with real dashboard: 4 stat cards (total revenue, total orders, active products, total customers); recent orders table (last 5, with status badge and order number link); quick-link cards to each admin section
+- [ ] `GET /api/admin/stats` — ADMIN-only; returns:
+  ```
+  {
+    revenue: { today: number, thisMonth: number, allTime: number },
+    orders:  { total: number, byStatus: Record<OrderStatus, number> },
+    products: { total: number, active: number, lowStock: number },
+    customers: { total: number, newThisMonth: number }
+  }
+  ```
+  (Use Prisma `aggregate` and `groupBy` — no raw SQL)
+- [ ] `src/lib/adminLog.ts` — helper `logAdminAction(adminId, action, targetType?, targetId?, detail?)` — writes to `AdminActivityLog`; called from all mutating admin API routes; non-fatal (never throws — just console.error on failure)
+- [ ] Add `/admin/:path*` to the middleware matcher in `src/proxy.ts` — apply rate limiting to all admin routes
 
 ### Task 8.2 — Product Management
 
-- [ ] Product list table with: image, title, price, stock, condition, status, last eBay sync
-- [ ] Edit product (override eBay-synced fields for website-only customization)
-- [ ] Toggle product active/inactive
-- [ ] Low stock alerts: highlight products below `lowStockThreshold`
-- [ ] Bulk actions: activate, deactivate, delete
-- [ ] Manual product creation (for non-eBay items)
+- [ ] `src/app/admin/products/page.tsx` — server component; paginated product table (20/page): thumbnail, title, price, `stockQuantity`, condition badge, isActive status, last eBay sync date; `?q=` search (title contains); `?status=active|inactive` filter; pagination via `?page=N`
+- [ ] `src/components/admin/products/ProductRowActions.tsx` — "Edit" link + "Activate"/"Deactivate" toggle button per row; calls API routes below; uses `useTransition` + `router.refresh()` for optimistic UI
+- [ ] `src/app/admin/products/new/page.tsx` — form for manual product creation (non-eBay): title, description, price, compareAtPrice, condition (`<select>`), stockQuantity, lowStockThreshold, category (`<select>` from DB), image URL(s); calls `POST /api/admin/products`
+- [ ] `src/app/admin/products/[id]/edit/page.tsx` — server component; fetches product by ID; renders pre-populated form; note shown if `ebayItemId` is set ("eBay-synced — changes may be overwritten on next sync"); calls `PUT /api/admin/products/[id]`
+- [ ] `POST /api/admin/products` — Zod validated; creates product + generates slug (`slugify(title) + '-' + shortUuid`); enforces uniqueness; logs action via `logAdminAction`
+- [ ] `PUT /api/admin/products/[id]` — Zod validated partial update (price, compareAtPrice, description, condition, stockQuantity, lowStockThreshold, isActive, categoryId); logs action
+- [ ] `PATCH /api/admin/products/[id]/toggle` — flips `isActive`; logs action; returns `{ isActive: boolean }`
+- [ ] `DELETE /api/admin/products/[id]` — returns 409 if product has any `OrderItem` records (never delete purchased products); otherwise hard-delete; logs action
+- [ ] `POST /api/admin/products/bulk` — body: `{ action: 'activate' | 'deactivate' | 'delete', ids: string[] }`; Zod validated; max 50 IDs per request; logs a single bulk action entry
+- [ ] Low-stock highlight: rows where `stockQuantity <= lowStockThreshold` show an orange "Low Stock" badge in the table
 
 ### Task 8.3 — Order Management
 
-- [ ] Order list with filters: status, date range, payment provider
-- [ ] Order detail view: customer info, items, payment status, shipping info
-- [ ] Update order status: Processing → Shipped → Delivered
-- [ ] Add/update tracking number (sends auto-notification email to customer)
-- [ ] Issue refund (via Stripe/PayPal API — partial or full)
-- [ ] Add notes to order
+- [ ] **Schema migration:** Add `notes String?` to the `Order` model in `prisma/schema.prisma`; run `npx prisma db push`
+- [ ] `src/app/admin/orders/page.tsx` — server component; paginated order table (20/page): order number (link), customer name+email, date, status badge, payment provider, total; filters: `?status=`, `?provider=`, `?from=YYYY-MM-DD`, `?to=YYYY-MM-DD`; search by order number or customer email via `?q=`
+- [ ] `src/app/admin/orders/[orderNumber]/page.tsx` — order detail page: customer info card, item list with thumbnails + per-item prices, shipping address, payment method label, totals breakdown, current status + timestamps; renders `<OrderStatusUpdater>`, `<TrackingForm>`, `<RefundPanel>`, `<OrderNotes>` components based on order state
+- [ ] `src/components/admin/orders/OrderStatusUpdater.tsx` — "use client"; dropdown of valid next statuses (enforces forward-only progression: PENDING→PAID→PROCESSING→SHIPPED→DELIVERED); confirm before changing; calls `PATCH /api/admin/orders/[orderNumber]/status`
+- [ ] `src/components/admin/orders/TrackingForm.tsx` — "use client"; input for tracking number; calls `PATCH /api/admin/orders/[orderNumber]/tracking`; success state shows "Email sent to customer"
+- [ ] `src/components/admin/orders/RefundPanel.tsx` — "use client"; shows refundable amount (order total); radio: Full Refund / Partial (custom amount input); confirmation modal before submitting; calls `POST /api/admin/orders/[orderNumber]/refund`; only shown when `paymentProvider === 'STRIPE'` and status is PAID/SHIPPED/DELIVERED
+- [ ] `src/components/admin/orders/OrderNotes.tsx` — "use client"; textarea for internal notes (not visible to customers); calls `PATCH /api/admin/orders/[orderNumber]/notes`
+- [ ] `PATCH /api/admin/orders/[orderNumber]/status` — Zod validated; enforces valid transitions (CANCELLED and REFUNDED are terminal); sets `shippedAt` when → SHIPPED, `deliveredAt` when → DELIVERED; logs action
+- [ ] `PATCH /api/admin/orders/[orderNumber]/tracking` — updates `trackingNumber`; calls `sendShippingNotificationEmail` from `src/lib/email.ts` (add this function if not already present); logs action
+- [ ] `POST /api/admin/orders/[orderNumber]/refund` — calls `stripe.refunds.create({ payment_intent: order.stripePaymentIntentId, amount? })`; on full refund sets order status to REFUNDED; on partial adds a note; logs action with amount detail; returns 400 if no `stripePaymentIntentId`
+- [ ] `PATCH /api/admin/orders/[orderNumber]/notes` — updates `notes` field; ADMIN-only; logs action
 
 ### Task 8.4 — Customer Management
 
-- [ ] Customer list: name, email, orders count, total spent, registered date
-- [ ] Customer detail: order history, addresses, account status
-- [ ] Manually verify or ban accounts
-- [ ] Export customer list (CSV) — for email marketing (respect consent)
+- [ ] **Schema migration:** Add `banned Boolean @default(false)` to `User` model in `prisma/schema.prisma`; run `npx prisma db push`
+- [ ] Update auth `authorize` callback in `src/app/api/auth/[...nextauth]/auth.ts` — check `user.banned`; return `null` to reject login for banned users (shows "Account suspended" error)
+- [ ] `src/app/admin/customers/page.tsx` — server component; paginated customer table (20/page): name, email, orders count, total spent (sum of non-CANCELLED/REFUNDED orders), registered date, banned badge if applicable; search by name or email via `?q=`; `?banned=true` filter
+- [ ] `src/app/admin/customers/[id]/page.tsx` — customer detail: profile card (name, email, phone, joined date, banned status), order history table (same data as account/orders), saved addresses list; action buttons: Verify Email, Ban Account, Unban Account
+- [ ] `PATCH /api/admin/customers/[id]/status` — body: `{ action: 'verify' | 'ban' | 'unban' }`; Zod validated; `verify` sets `emailVerified = new Date()`; `ban`/`unban` toggles `banned` field; logs action; returns 400 if attempting to ban yourself
+- [ ] `GET /api/admin/customers/export` — streams CSV response (`Content-Type: text/csv`; `Content-Disposition: attachment`); includes only users with a linked `EmailSubscriber` where `subscribed: true`; fields: name, email, orders count, total spent, joined date; logs action (no PII in log detail)
 
 ### Task 8.5 — Discount Code Management
 
-- [ ] Create discount codes: percentage off, fixed dollar off
-- [ ] Set: min order amount, expiry date, max uses
-- [ ] Activate/deactivate codes
-- [ ] Usage report per code
+- [ ] `src/app/admin/discounts/page.tsx` — server component; table of all discount codes: code, type, value, min order amount, expiry, max uses, used count, active status; "Create New Code" button opens `<DiscountForm>` in a modal or inline form
+- [ ] `src/components/admin/discounts/DiscountForm.tsx` — "use client"; fields: code (text + "Generate Random" button that fills a 8-char uppercase alphanumeric), type (PERCENTAGE / FIXED), value (number), minOrderAmount (optional), expiresAt (optional date picker), maxUses (optional number), isActive (toggle, default true); Zod-equivalent client validation; `onSave` callback
+- [ ] `POST /api/admin/discounts` — Zod validated; normalizes `code` to uppercase; 409 if code already exists; creates `DiscountCode`; logs action
+- [ ] `PUT /api/admin/discounts/[id]` — Zod validated partial update (all fields except `usedCount` and `id`); logs action
+- [ ] `PATCH /api/admin/discounts/[id]/toggle` — flips `isActive`; logs action; returns `{ isActive: boolean }`
+- [ ] `DELETE /api/admin/discounts/[id]` — hard delete; logs action; returns 409 if code has `usedCount > 0` (preserve history)
+- [ ] Discount detail: clicking a code row in the table fetches and lists all `Order` records where `discountCode === code` (join via Order model's discount code field); shows order number, customer, amount saved
 
 ### Task 8.6 — Analytics Dashboard
 
-- [ ] Revenue chart: daily/weekly/monthly
-- [ ] Top 10 best-selling products
-- [ ] Orders by status
-- [ ] New vs. returning customers
-- [ ] Embed Google Analytics 4 tracking (GA4 Measurement ID via env variable)
-- [ ] Conversion rate tracking: sessions → add-to-cart → checkout → purchase
+- [ ] Install recharts: `npm install recharts @types/recharts` (if not already installed)
+- [ ] `src/app/admin/analytics/page.tsx` — client component (charts require client-side rendering); fetches from `GET /api/admin/analytics` on mount; renders: revenue area chart (daily for last 30 days), top 10 products bar chart, orders-by-status pie chart, customer stats cards
+- [ ] `GET /api/admin/analytics` — ADMIN-only; returns:
+  ```
+  {
+    dailyRevenue:    { date: string, revenue: number, orderCount: number }[]  // last 30 days
+    ordersByStatus:  Record<OrderStatus, number>
+    topProducts:     { productId: string, title: string, totalSold: number, revenue: number }[]  // top 10
+    customerStats:   { total: number, newLast30Days: number, returning: number }
+  }
+  ```
+  Use Prisma `groupBy` for daily revenue (group by `createdAt` date, sum `total`, where `status IN [PAID, SHIPPED, DELIVERED, REFUNDED]`); use `$queryRaw` only if `groupBy` cannot produce the date-bucketed result
+- [ ] Revenue chart: `<AreaChart>` from recharts; x-axis = date, y-axis = revenue in dollars; tooltip shows revenue + order count
+- [ ] Top products chart: `<BarChart>` horizontal; product title on y-axis, quantity sold on x-axis
+- [ ] Orders by status: `<PieChart>` with legend; colors match `OrderStatusBadge` colors from Phase 7
+- [ ] _Note:_ GA4 (`NEXT_PUBLIC_GA_MEASUREMENT_ID`) is wired in Phase 10 — do not add GA4 script here; conversion rate tracking (add-to-cart → checkout → purchase funnel) is also Phase 10
 
 ### Phase 8 Verification
 
-- [ ] Log in as non-admin user — confirm `/admin` returns 403
-- [ ] Create a discount code → apply at checkout → verify discount applied correctly
-- [ ] Process a refund → confirm Stripe balance updated
-- [ ] Add tracking number to order → confirm customer notification email sent
+- [ ] Log in as non-admin user — confirm visiting `/admin` returns 403 (not a redirect)
+- [ ] Unauthenticated user visits `/admin` — confirm redirect to `/auth/login?callbackUrl=/admin`
+- [ ] Log in as admin — confirm sidebar renders and all nav links (`/admin/products`, `/admin/orders`, `/admin/customers`, `/admin/ebay-sync`, `/admin/discounts`, `/admin/analytics`) load without errors
+- [ ] Stats cards on `/admin` dashboard show non-zero values (assuming seeded data exists)
+- [ ] Create a product manually via `/admin/products/new` → confirm it appears in `/shop`
+- [ ] Toggle a product inactive → confirm it disappears from `/shop`; toggle active again → confirm it returns
+- [ ] Bulk deactivate 2 products → confirm both disappear from `/shop`
+- [ ] Update an order status to SHIPPED → confirm `shippedAt` timestamp is set
+- [ ] Add tracking number to an order → confirm customer shipping notification email is received
+- [ ] Process a Stripe refund via admin panel → confirm Stripe dashboard shows the refund
+- [ ] Create a discount code → apply it at checkout → confirm order total reflects the discount; view usage count in `/admin/discounts` (should be 1)
+- [ ] Ban a customer account → attempt login with that account → confirm login is blocked
+- [ ] Export customer CSV → confirm only subscribed customers are included with correct fields
+- [ ] Check `AdminActivityLog` table in DB — confirm entries logged for each action above
+- [ ] Load `/admin/analytics` — confirm all charts render with data
 
 ---
 

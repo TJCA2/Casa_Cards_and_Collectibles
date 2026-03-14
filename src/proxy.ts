@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { authRatelimit, apiRatelimit } from "@/lib/ratelimit";
 
-const AUTH_PATTERN = /^\/api\/auth\//;
-const API_PATTERN = /^\/api\/(checkout|contact|ebay-sync|ebay|admin)(\/|$)/;
+// Rate-limit only real auth actions — not the session read endpoint (polled by SessionProvider on every page load)
+const AUTH_PATTERN = /^\/api\/auth\/(?!session$)/;
+const API_PATTERN =
+  /^\/api\/(checkout|contact|ebay-sync|ebay|admin|newsletter|products|cart|orders|account)(\/|$)/;
 const ADMIN_PAGE_PATTERN = /^\/admin(\/|$)/;
 const ADMIN_API_PATTERN = /^\/api\/admin\//;
 
@@ -66,5 +68,11 @@ export const config = {
     "/api/contact",
     "/api/ebay-sync",
     "/api/ebay/:path*",
+    "/api/newsletter/:path*",
+    "/api/products/:path*",
+    "/api/cart/:path*",
+    "/api/orders/:path*",
+    "/api/account/:path*",
+    "/api/account/verify-email-change",
   ],
 };
