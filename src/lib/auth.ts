@@ -10,7 +10,7 @@ const secureCookies: NextAuthOptions["cookies"] = {
     name: "__Secure-next-auth.session-token",
     options: {
       httpOnly: true,
-      sameSite: "strict",
+      sameSite: "lax",
       path: "/",
       secure: true,
     },
@@ -49,7 +49,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         // ── Validate CAPTCHA when required ────────────────────────────────────
-        if (captchaRequired) {
+        // Only enforce CAPTCHA if Turnstile is actually configured — if the secret
+        // key is absent, skipping is safer than fail-closed (which would permanently
+        // block legitimate users after 3 failed attempts with no way to recover).
+        if (captchaRequired && process.env.TURNSTILE_SECRET_KEY) {
           const captchaValid = await validateTurnstile(captchaToken);
           if (!captchaValid) {
             return null;
