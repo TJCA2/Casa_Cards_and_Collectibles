@@ -29,7 +29,9 @@
       "Bash(pkill -f \"next dev\")",
       "Bash(find /Users/tj/Casa_Cards_and_Collectibles -name .env* -type f)",
       "Bash(find src/app/account src/app/api/cart src/app/api/checkout src/app/api/orders src/app/api/products src/app/checkout src/app/orders src/app/product src/app/shop src/app/search src/app/category src/components src/context -name *.ts -o -name *.tsx)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(find /Users/tj/Casa_Cards_and_Collectibles -type f -name *auth*)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js|jsx\\)$\")"
     ],
     "additionalDirectories": [
       "/Users/tj/Casa_Cards_and_Collectibles/images",
