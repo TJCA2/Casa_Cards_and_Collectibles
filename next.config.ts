@@ -75,12 +75,25 @@ const nextConfig: NextConfig = {
   // Force HTTPS: redirect http → https in production
   // Vercel handles this at the edge, but we set it here as a code-level guarantee
   async redirects() {
-    if (process.env.NODE_ENV !== "production") return [];
+    const productionOnly =
+      process.env.NODE_ENV !== "production"
+        ? []
+        : [
+            {
+              source: "/:path*",
+              has: [{ type: "header", key: "x-forwarded-proto", value: "http" }],
+              destination: "https://:path*",
+              permanent: true,
+            },
+          ];
+
     return [
+      ...productionOnly,
+      // Redirect the raw NextAuth error endpoint to the branded custom error page.
+      // This prevents Google Safe Browsing from flagging the unbranded default page as phishing.
       {
-        source: "/:path*",
-        has: [{ type: "header", key: "x-forwarded-proto", value: "http" }],
-        destination: "https://:path*",
+        source: "/api/auth/error",
+        destination: "/auth/error",
         permanent: true,
       },
     ];
