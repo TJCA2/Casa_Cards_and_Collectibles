@@ -42,18 +42,22 @@ export async function proxy(request: NextRequest) {
   if (!isAuth && !isApi) return NextResponse.next();
 
   const limiter = isAuth ? authRatelimit : apiRatelimit;
-  const { success, limit, reset } = await limiter.limit(ip);
-
-  if (!success) {
-    return new NextResponse("Too Many Requests", {
-      status: 429,
-      headers: {
-        "Retry-After": String(Math.ceil((reset - Date.now()) / 1000)),
-        "X-RateLimit-Limit": String(limit),
-        "X-RateLimit-Remaining": "0",
-        "X-RateLimit-Reset": String(reset),
-      },
-    });
+  try {
+    const { success, limit, reset } = await limiter.limit(ip);
+    if (!success) {
+      return new NextResponse("Too Many Requests", {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil((reset - Date.now()) / 1000)),
+          "X-RateLimit-Limit": String(limit),
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(reset),
+        },
+      });
+    }
+  } catch {
+    // Upstash unavailable — fail open so auth routes still work.
+    // Supabase-based login attempt tracking still provides brute-force protection.
   }
 
   return NextResponse.next();
