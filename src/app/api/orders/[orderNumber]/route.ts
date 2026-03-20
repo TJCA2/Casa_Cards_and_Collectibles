@@ -47,9 +47,9 @@ export async function GET(req: NextRequest, { params }: { params: Params }) {
     status: order.status,
     createdAt: order.createdAt,
     items: order.items.map((i) => ({
-      title: i.product.title,
-      slug: i.product.slug,
-      imageUrl: i.product.images[0]?.url ?? null,
+      title: i.product?.title ?? i.productTitle ?? "",
+      slug: i.product?.slug ?? null,
+      imageUrl: i.product?.images[0]?.url ?? null,
       quantity: i.quantity,
       unitPrice: parseFloat(i.unitPrice.toString()),
       totalPrice: parseFloat(i.totalPrice.toString()),

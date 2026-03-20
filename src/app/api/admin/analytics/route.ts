@@ -72,7 +72,7 @@ export async function GET(_req: NextRequest) {
     take: 10,
   });
 
-  const productIds = topItemGroups.map((g) => g.productId);
+  const productIds = topItemGroups.map((g) => g.productId).filter((id): id is string => id != null);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
     select: { id: true, title: true },
@@ -81,7 +81,7 @@ export async function GET(_req: NextRequest) {
 
   const topProducts = topItemGroups.map((g) => ({
     productId: g.productId,
-    title: productMap.get(g.productId) ?? g.productId,
+    title: (g.productId ? productMap.get(g.productId) : null) ?? g.productId ?? "Unknown",
     totalSold: g._sum.quantity ?? 0,
     revenue: Number(g._sum.totalPrice ?? 0),
   }));
