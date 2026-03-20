@@ -208,37 +208,44 @@ export default async function OrderDetailPage({ params }: { params: Params }) {
           <h3 className="font-semibold text-gray-900">Items</h3>
         </div>
         <ul className="divide-y divide-gray-100">
-          {order.items.map((item) => (
-            <li key={item.id} className="flex items-center gap-4 px-5 py-4">
-              {item.product.images[0]?.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={item.product.images[0].url}
-                  alt={item.product.title}
-                  className="h-14 w-14 flex-shrink-0 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="h-14 w-14 flex-shrink-0 rounded-lg bg-gray-100" />
-              )}
-              <div className="min-w-0 flex-1">
-                {item.product.slug ? (
-                  <Link
-                    href={`/product/${item.product.slug}`}
-                    className="truncate text-sm font-medium text-gray-900 hover:text-red-600"
-                  >
-                    {item.product.title}
-                  </Link>
+          {order.items.map((item) => {
+            const product = item.product;
+            return (
+              <li key={item.id} className="flex items-center gap-4 px-5 py-4">
+                {product?.images[0]?.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={product.images[0].url}
+                    alt={product.title}
+                    className="h-14 w-14 flex-shrink-0 rounded-lg object-cover"
+                  />
                 ) : (
-                  <p className="truncate text-sm font-medium text-gray-900">{item.product.title}</p>
+                  <div className="h-14 w-14 flex-shrink-0 rounded-lg bg-gray-100" />
                 )}
-                <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{fmt(Number(item.totalPrice))}</p>
-                <p className="text-xs text-gray-400">{fmt(Number(item.unitPrice))} each</p>
-              </div>
-            </li>
-          ))}
+                <div className="min-w-0 flex-1">
+                  {product?.slug ? (
+                    <Link
+                      href={`/product/${product.slug}`}
+                      className="truncate text-sm font-medium text-gray-900 hover:text-red-600"
+                    >
+                      {product.title}
+                    </Link>
+                  ) : (
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {product?.title ?? item.productTitle}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900">
+                    {fmt(Number(item.totalPrice))}
+                  </p>
+                  <p className="text-xs text-gray-400">{fmt(Number(item.unitPrice))} each</p>
+                </div>
+              </li>
+            );
+          })}
         </ul>
 
         {/* Totals */}

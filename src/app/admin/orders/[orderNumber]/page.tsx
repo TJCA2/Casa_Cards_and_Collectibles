@@ -78,14 +78,14 @@ export default async function AdminOrderDetailPage({ params }: Params) {
             </h2>
             <div className="divide-y divide-gray-100">
               {order.items.map((item) => {
-                const imageUrl = item.product.images[0]?.url ?? null;
+                const imageUrl = item.product?.images[0]?.url ?? null;
                 return (
                   <div key={item.id} className="flex items-center gap-4 py-3">
                     <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                       {imageUrl ? (
                         <Image
                           src={imageUrl}
-                          alt={item.product.title}
+                          alt={item.product?.title ?? item.productTitle ?? ""}
                           width={56}
                           height={56}
                           className="h-full w-full object-cover"
@@ -109,7 +109,9 @@ export default async function AdminOrderDetailPage({ params }: Params) {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-gray-900">{item.product.title}</p>
+                      <p className="truncate font-medium text-gray-900">
+                        {item.product?.title ?? item.productTitle ?? ""}
+                      </p>
                       <p className="text-sm text-gray-500">
                         ${Number(item.unitPrice).toFixed(2)} × {item.quantity}
                       </p>

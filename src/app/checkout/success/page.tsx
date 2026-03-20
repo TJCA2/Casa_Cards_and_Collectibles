@@ -81,11 +81,11 @@ export default async function SuccessPage({ searchParams }: { searchParams: Sear
             <ul className="divide-y divide-gray-100">
               {order.items.map((item) => (
                 <li key={item.id} className="flex items-center gap-4 px-5 py-4">
-                  {item.product.images[0]?.url ? (
+                  {item.product?.images[0]?.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.product.images[0].url}
-                      alt={item.product.title}
+                      alt={item.product.title ?? ""}
                       className="h-14 w-14 flex-shrink-0 rounded-lg object-cover"
                     />
                   ) : (
@@ -93,7 +93,7 @@ export default async function SuccessPage({ searchParams }: { searchParams: Sear
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-gray-900">
-                      {item.product.title}
+                      {item.product?.title ?? item.productTitle ?? ""}
                     </p>
                     <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
                   </div>

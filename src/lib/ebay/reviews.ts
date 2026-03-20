@@ -91,7 +91,7 @@ export async function fetchEbayFeedback(): Promise<{
   let url: string | null = `${FEEDBACK_BASE}/feedback?feedback_type=RECEIVED_AS_SELLER&limit=200`;
 
   while (url) {
-    const page = await get<EbayFeedbackResponse>(url);
+    const page: EbayFeedbackResponse = await get<EbayFeedbackResponse>(url);
 
     for (const entry of page.feedbackEntries ?? []) {
       if (!entry.feedbackId) continue;

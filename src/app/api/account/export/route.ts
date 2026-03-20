@@ -37,6 +37,7 @@ export async function GET(_req: NextRequest) {
               quantity: true,
               unitPrice: true,
               totalPrice: true,
+              productTitle: true,
               product: { select: { title: true } },
             },
           },
@@ -95,7 +96,7 @@ export async function GET(_req: NextRequest) {
       shippedAt: o.shippedAt,
       deliveredAt: o.deliveredAt,
       items: o.items.map((i) => ({
-        product: i.product.title,
+        product: i.product?.title ?? i.productTitle ?? "",
         quantity: i.quantity,
         unitPrice: Number(i.unitPrice),
         lineTotal: Number(i.totalPrice),
