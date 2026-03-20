@@ -31,14 +31,37 @@
       "Bash(find src/app/account src/app/api/cart src/app/api/checkout src/app/api/orders src/app/api/products src/app/checkout src/app/orders src/app/product src/app/shop src/app/search src/app/category src/components src/context -name *.ts -o -name *.tsx)",
       "Bash(npx eslint:*)",
       "Bash(find /Users/tj/Casa_Cards_and_Collectibles -type f -name *auth*)",
-      "Bash(grep -E \"\\\\.\\(ts|tsx|js|jsx\\)$\")"
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js|jsx\\)$\")",
+      "Bash(find /Users/tj/Casa_Cards_and_Collectibles/src -name *.d.ts -o -name next-auth.d.ts)",
+      "Bash(mkdir -p /Users/tj/Casa_Cards_and_Collectibles/src/app/api/admin/products/[id]/toggle)",
+      "Bash(mkdir -p \"/Users/tj/Casa_Cards_and_Collectibles/src/app/admin/products/[id]/edit\")",
+      "Bash(dotenv -e .env.local -- npx prisma db push)",
+      "Bash(grep -E \"TURNSTILE\" /Users/tj/Casa_Cards_and_Collectibles/.env*)",
+      "Bash(find /Users/tj/Casa_Cards_and_Collectibles/src/app/api -name *ebay* -o -name *sync*)",
+      "Bash(DIRECT_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:5432/postgres\" DATABASE_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" npx prisma migrate dev --name add_product_sport)",
+      "Bash(DIRECT_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:5432/postgres\" DATABASE_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" npx prisma migrate dev --name add_product_sport --create-only)",
+      "Bash(DIRECT_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:5432/postgres\" DATABASE_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" npx prisma db push)",
+      "Bash(DIRECT_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:5432/postgres\" DATABASE_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" npx prisma generate)",
+      "Bash(source .env)",
+      "Bash(DATABASE_URL=\"placeholder\" DIRECT_URL=\"placeholder\" npx tsc --noEmit)",
+      "Bash(grep -n \"ACCEPTED\\\\|purchaseToken\\\\|tokenExpiresAt\\\\|PURCHASED\" src/app/api/admin/offers/[id]/accept/route.ts)",
+      "Bash(grep -n \"DECLINED\\\\|adminNote\" src/app/api/admin/offers/[id]/decline/route.ts)",
+      "Bash(grep -n \"already been purchased\\\\|no longer valid\\\\|has expired\\\\|Unauthorized\\\\|CRON_SECRET\" src/app/api/offers/token/[token]/route.ts src/app/api/cron/expire-offers/route.ts)",
+      "Bash(grep -v '^$')",
+      "Read(//tmp/**)",
+      "Bash(mkdir -p \"src/app/api/admin/messages/[id]/status\")",
+      "Bash(mkdir -p \"src/app/admin/messages/[id]\")"
     ],
     "additionalDirectories": [
       "/Users/tj/Casa_Cards_and_Collectibles/images",
       "/Users/tj/Casa_Cards_and_Collectibles/src/app/product",
       "/Users/tj/Casa_Cards_and_Collectibles/src/app/account/orders",
       "/Users/tj/Casa_Cards_and_Collectibles/src/app/api/account/addresses/[id]",
-      "/Users/tj/Casa_Cards_and_Collectibles/src/app/api/account/wishlist"
+      "/Users/tj/Casa_Cards_and_Collectibles/src/app/api/account/wishlist",
+      "/Users/tj/Casa_Cards_and_Collectibles/src/app/api/offers",
+      "/Users/tj/Casa_Cards_and_Collectibles/src/app/api/admin/offers/[id]",
+      "/Users/tj/Casa_Cards_and_Collectibles/src/app/api/offers/token",
+      "/Users/tj/Casa_Cards_and_Collectibles/src/app/api/admin/messages/[id]"
     ]
   }
 }

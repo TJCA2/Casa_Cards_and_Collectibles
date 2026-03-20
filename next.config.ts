@@ -7,12 +7,12 @@ import type { NextConfig } from "next";
 // - script-src uses 'self' only; third-party scripts (GA4, Stripe, PayPal) will be added here
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com;
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://challenges.cloudflare.com;
   style-src 'self' 'unsafe-inline';
   img-src 'self' data: blob: https:;
   font-src 'self' https://js.stripe.com;
-  frame-src https://js.stripe.com;
-  connect-src 'self' https://api.stripe.com https://hooks.stripe.com https://m.stripe.com https://m.stripe.network;
+  frame-src https://js.stripe.com https://challenges.cloudflare.com;
+  connect-src 'self' https://api.stripe.com https://hooks.stripe.com https://m.stripe.com https://m.stripe.network https://challenges.cloudflare.com;
   object-src 'none';
   base-uri 'self';
   form-action 'self';

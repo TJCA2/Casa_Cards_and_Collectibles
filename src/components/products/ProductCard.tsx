@@ -1,20 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 
-const CONDITION_LABELS: Record<string, string> = {
-  NEW: "New",
-  LIKE_NEW: "Like New",
-  USED: "Used",
-  REFURBISHED: "Refurbished",
-};
-
-const CONDITION_STYLES: Record<string, string> = {
-  NEW: "bg-red-600 text-white",
-  LIKE_NEW: "bg-gray-800 text-white",
-  USED: "bg-gray-200 text-gray-700",
-  REFURBISHED: "bg-gray-300 text-gray-700",
-};
-
 export interface ProductCardProps {
   id: string;
   slug: string | null;
@@ -29,7 +15,6 @@ export default function ProductCard({
   slug,
   title,
   price,
-  condition,
   stockQuantity,
   imageUrl,
 }: ProductCardProps) {
@@ -79,13 +64,6 @@ export default function ProductCard({
             </span>
           </div>
         )}
-
-        {/* Condition badge */}
-        <span
-          className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-xs font-semibold ${CONDITION_STYLES[condition] ?? "bg-gray-200 text-gray-700"}`}
-        >
-          {CONDITION_LABELS[condition] ?? condition}
-        </span>
       </div>
 
       {/* Info */}

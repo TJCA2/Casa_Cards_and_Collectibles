@@ -1,15 +1,28 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ProductCard from "@/components/products/ProductCard";
+import FeaturedCarousel from "@/components/products/FeaturedCarousel";
 import NewsletterBar from "@/components/homepage/NewsletterBar";
 
 // ── Data fetching ──────────────────────────────────────────────────────────────
 
-async function getCategories() {
-  return prisma.category.findMany({
-    where: { parentId: null },
-    orderBy: { name: "asc" },
+async function getFeaturedProducts() {
+  return prisma.product.findMany({
+    where: { isActive: true, isFeatured: true },
+    orderBy: { updatedAt: "desc" },
+    take: 20,
+    include: { images: { where: { sortOrder: 0 }, take: 1 } },
   });
+}
+
+async function getSports(): Promise<string[]> {
+  const rows = await prisma.product.findMany({
+    where: { isActive: true, sport: { not: null } },
+    select: { sport: true },
+    distinct: ["sport"],
+    orderBy: { sport: "asc" },
+  });
+  return rows.map((r) => r.sport as string);
 }
 
 async function getNewestProducts() {
@@ -21,24 +34,49 @@ async function getNewestProducts() {
   });
 }
 
-// ── Category icons (sport emoji fallbacks) ─────────────────────────────────────
+// ── Sport icons ────────────────────────────────────────────────────────────────
 
-const CATEGORY_ICONS: Record<string, string> = {
-  "baseball-cards": "⚾",
-  "basketball-cards": "🏀",
-  "football-cards": "🏈",
-};
+const SPORT_ICONS: [string, string][] = [
+  ["baseball", "⚾"],
+  ["basketball", "🏀"],
+  ["football", "🏈"],
+  ["soccer", "⚽"],
+  ["hockey", "🏒"],
+  ["golf", "⛳"],
+  ["tennis", "🎾"],
+  ["wrestling", "🤼"],
+  ["boxing", "🥊"],
+  ["multi", "🏆"],
+];
+
+function sportIcon(sport: string): string {
+  const lower = sport.toLowerCase();
+  return SPORT_ICONS.find(([key]) => lower.includes(key))?.[1] ?? "🃏";
+}
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default async function HomePage() {
-  const [categories, products] = await Promise.all([getCategories(), getNewestProducts()]);
+  const [featured, sports, products] = await Promise.all([
+    getFeaturedProducts(),
+    getSports(),
+    getNewestProducts(),
+  ]);
 
   return (
     <>
       {/* ── Hero ── */}
-      <section className="bg-black py-24 text-center">
-        <div className="mx-auto max-w-3xl px-4">
+      <section
+        className="relative py-24 text-center"
+        style={{
+          backgroundImage: "url('/hero.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        {/* Dark overlay so text stays readable */}
+        <div className="absolute inset-0 bg-black/55" />
+        <div className="relative mx-auto max-w-3xl px-4">
           <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
             Casa Cards &amp; Collectibles
           </h1>
@@ -63,31 +101,47 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── Featured categories ── */}
-      {categories.length > 0 && (
+      {/* ── Featured Cards ── */}
+      {featured.length > 0 && (
+        <section className="py-14">
+          <div className="mb-6 mx-auto max-w-7xl px-4 flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">Featured Cards</h2>
+            <Link href="/shop" className="text-sm font-medium text-red-600 hover:text-red-700">
+              View all →
+            </Link>
+          </div>
+          <FeaturedCarousel
+            products={featured.map((p) => ({
+              id: p.id,
+              slug: p.slug,
+              title: p.title,
+              price: p.price.toString(),
+              condition: p.condition,
+              stockQuantity: p.stockQuantity,
+              imageUrl: p.images[0]?.url ?? null,
+            }))}
+          />
+        </section>
+      )}
+
+      {/* ── Shop by Sport ── */}
+      {sports.length > 0 && (
         <section className="bg-gray-50 py-14">
           <div className="mx-auto max-w-7xl px-4">
             <h2 className="mb-8 text-center text-2xl font-bold text-gray-900">Shop by Sport</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {categories.map((cat) => (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {sports.map((sport) => (
                 <Link
-                  key={cat.id}
-                  href={`/category/${cat.slug}`}
-                  className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:border-red-200 hover:shadow-md"
+                  key={sport}
+                  href={`/shop?sport=${encodeURIComponent(sport)}`}
+                  className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-red-200 hover:shadow-md"
                 >
-                  <span className="text-4xl" aria-hidden="true">
-                    {CATEGORY_ICONS[cat.slug] ?? "🃏"}
+                  <span className="text-3xl" aria-hidden="true">
+                    {sportIcon(sport)}
                   </span>
-                  <div>
-                    <p className="font-semibold text-gray-900 group-hover:text-red-600">
-                      {cat.name}
-                    </p>
-                    {cat.description && (
-                      <p className="mt-0.5 text-xs text-gray-500">{cat.description}</p>
-                    )}
-                  </div>
+                  <p className="font-semibold text-gray-900 group-hover:text-red-600">{sport}</p>
                   <svg
-                    className="ml-auto h-4 w-4 text-gray-300 transition group-hover:text-red-500"
+                    className="ml-auto h-4 w-4 flex-shrink-0 text-gray-300 transition group-hover:text-red-500"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={2}

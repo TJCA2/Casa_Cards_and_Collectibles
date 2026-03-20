@@ -427,8 +427,8 @@ _Goal: Secure, frictionless checkout with Stripe. No payment data ever touches o
 - Cart/Order/Address Prisma models already exist from Phase 2 — no schema changes needed
 - `RESEND_API_KEY` and `EMAIL_FROM` are already configured — order confirmation emails are ready to wire up
 - PayPal deferred to Phase 8 (credentials not yet configured)
-- Real-time shipping rates (EasyPost) deferred to Phase 10 — using flat-rate options for MVP
-- Sales tax (TaxJar/Stripe Tax) deferred to Phase 10
+- Real-time shipping rates (EasyPost) deferred to Phase 11 — using flat-rate options for MVP
+- Sales tax (TaxJar/Stripe Tax) deferred to Phase 11
 
 ### Task 6.1 — Cart State & UI
 
@@ -637,7 +637,7 @@ _Goal: A secure, internal-only dashboard for managing the store._
 
 ### Task 8.1 — Admin Layout & Shared Infrastructure
 
-- [ ] **Schema migration:** Add `AdminActivityLog` model to `prisma/schema.prisma`:
+- [x] **Schema migration:** Add `AdminActivityLog` model to `prisma/schema.prisma`:
   ```
   AdminActivityLog
     - id         String   @id @default(uuid())
@@ -650,11 +650,11 @@ _Goal: A secure, internal-only dashboard for managing the store._
     - createdAt  DateTime @default(now())
   ```
   Run `npx prisma db push`
-- [ ] `src/app/admin/layout.tsx` — server component; `getServerSession(authOptions)`; redirects unauthenticated users to `/auth/login?callbackUrl=/admin`; returns 403 page (not redirect) for authenticated non-ADMIN users; renders `<AdminSidebar />` + `{children}` in a two-column layout
-- [ ] `src/components/admin/AdminSidebar.tsx` — sidebar nav links: Dashboard (`/admin`), Products (`/admin/products`), Orders (`/admin/orders`), Customers (`/admin/customers`), eBay Sync (`/admin/ebay-sync`), Discounts (`/admin/discounts`), Analytics (`/admin/analytics`); active link highlighted red; "← Back to Store" link at bottom; mobile: collapsible top bar
-- [ ] Update `src/app/admin/ebay-sync/page.tsx` — remove the standalone `<main>` wrapper and "← Admin" back-link; the shared layout shell now provides both
-- [ ] Update `src/app/admin/page.tsx` — replace "Coming in Phase 8" placeholder with real dashboard: 4 stat cards (total revenue, total orders, active products, total customers); recent orders table (last 5, with status badge and order number link); quick-link cards to each admin section
-- [ ] `GET /api/admin/stats` — ADMIN-only; returns:
+- [x] `src/app/admin/layout.tsx` — server component; `getServerSession(authOptions)`; redirects unauthenticated users to `/auth/login?callbackUrl=/admin`; returns 403 page (not redirect) for authenticated non-ADMIN users; renders `<AdminSidebar />` + `{children}` in a two-column layout
+- [x] `src/components/admin/AdminSidebar.tsx` — sidebar nav links: Dashboard (`/admin`), Products (`/admin/products`), Orders (`/admin/orders`), Customers (`/admin/customers`), eBay Sync (`/admin/ebay-sync`), Discounts (`/admin/discounts`), Analytics (`/admin/analytics`); active link highlighted red; "← Back to Store" link at bottom; mobile: collapsible top bar
+- [x] Update `src/app/admin/ebay-sync/page.tsx` — remove the standalone `<main>` wrapper and "← Admin" back-link; the shared layout shell now provides both
+- [x] Update `src/app/admin/page.tsx` — replace "Coming in Phase 8" placeholder with real dashboard: 4 stat cards (total revenue, total orders, active products, total customers); recent orders table (last 5, with status badge and order number link); quick-link cards to each admin section
+- [x] `GET /api/admin/stats` — ADMIN-only; returns:
   ```
   {
     revenue: { today: number, thisMonth: number, allTime: number },
@@ -664,95 +664,498 @@ _Goal: A secure, internal-only dashboard for managing the store._
   }
   ```
   (Use Prisma `aggregate` and `groupBy` — no raw SQL)
-- [ ] `src/lib/adminLog.ts` — helper `logAdminAction(adminId, action, targetType?, targetId?, detail?)` — writes to `AdminActivityLog`; called from all mutating admin API routes; non-fatal (never throws — just console.error on failure)
-- [ ] Add `/admin/:path*` to the middleware matcher in `src/proxy.ts` — apply rate limiting to all admin routes
+- [x] `src/lib/adminLog.ts` — helper `logAdminAction(adminId, action, targetType?, targetId?, detail?)` — writes to `AdminActivityLog`; called from all mutating admin API routes; non-fatal (never throws — just console.error on failure)
+- [x] Add `/admin/:path*` to the middleware matcher in `src/proxy.ts` — already covered by existing matcher
 
 ### Task 8.2 — Product Management
 
-- [ ] `src/app/admin/products/page.tsx` — server component; paginated product table (20/page): thumbnail, title, price, `stockQuantity`, condition badge, isActive status, last eBay sync date; `?q=` search (title contains); `?status=active|inactive` filter; pagination via `?page=N`
-- [ ] `src/components/admin/products/ProductRowActions.tsx` — "Edit" link + "Activate"/"Deactivate" toggle button per row; calls API routes below; uses `useTransition` + `router.refresh()` for optimistic UI
-- [ ] `src/app/admin/products/new/page.tsx` — form for manual product creation (non-eBay): title, description, price, compareAtPrice, condition (`<select>`), stockQuantity, lowStockThreshold, category (`<select>` from DB), image URL(s); calls `POST /api/admin/products`
-- [ ] `src/app/admin/products/[id]/edit/page.tsx` — server component; fetches product by ID; renders pre-populated form; note shown if `ebayItemId` is set ("eBay-synced — changes may be overwritten on next sync"); calls `PUT /api/admin/products/[id]`
-- [ ] `POST /api/admin/products` — Zod validated; creates product + generates slug (`slugify(title) + '-' + shortUuid`); enforces uniqueness; logs action via `logAdminAction`
-- [ ] `PUT /api/admin/products/[id]` — Zod validated partial update (price, compareAtPrice, description, condition, stockQuantity, lowStockThreshold, isActive, categoryId); logs action
-- [ ] `PATCH /api/admin/products/[id]/toggle` — flips `isActive`; logs action; returns `{ isActive: boolean }`
-- [ ] `DELETE /api/admin/products/[id]` — returns 409 if product has any `OrderItem` records (never delete purchased products); otherwise hard-delete; logs action
-- [ ] `POST /api/admin/products/bulk` — body: `{ action: 'activate' | 'deactivate' | 'delete', ids: string[] }`; Zod validated; max 50 IDs per request; logs a single bulk action entry
-- [ ] Low-stock highlight: rows where `stockQuantity <= lowStockThreshold` show an orange "Low Stock" badge in the table
+- [x] `src/app/admin/products/page.tsx` — server component; paginated product table (20/page): thumbnail, title, price, `stockQuantity`, condition badge, isActive status, last eBay sync date; `?q=` search (title contains); `?status=active|inactive` filter; pagination via `?page=N`
+- [x] `src/components/admin/products/ProductRowActions.tsx` — "Edit" link + "Activate"/"Deactivate" toggle button per row; calls API routes below; uses `useTransition` + `router.refresh()` for optimistic UI
+- [x] `src/app/admin/products/new/page.tsx` — form for manual product creation (non-eBay): title, description, price, compareAtPrice, condition (`<select>`), stockQuantity, lowStockThreshold, category (`<select>` from DB), image URL(s); calls `POST /api/admin/products`
+- [x] `src/app/admin/products/[id]/edit/page.tsx` — server component; fetches product by ID; renders pre-populated form; note shown if `ebayItemId` is set ("eBay-synced — changes may be overwritten on next sync"); calls `PUT /api/admin/products/[id]`
+- [x] `POST /api/admin/products` — Zod validated; creates product + generates slug (`slugify(title) + '-' + shortUuid`); enforces uniqueness; logs action via `logAdminAction`
+- [x] `PUT /api/admin/products/[id]` — Zod validated partial update (price, compareAtPrice, description, condition, stockQuantity, lowStockThreshold, isActive, categoryId); logs action
+- [x] `PATCH /api/admin/products/[id]/toggle` — flips `isActive`; logs action; returns `{ isActive: boolean }`
+- [x] `DELETE /api/admin/products/[id]` — returns 409 if product has any `OrderItem` records (never delete purchased products); otherwise hard-delete; logs action
+- [x] `POST /api/admin/products/bulk` — body: `{ action: 'activate' | 'deactivate' | 'delete', ids: string[] }`; Zod validated; max 50 IDs per request; logs a single bulk action entry
+- [x] Low-stock highlight: rows where `stockQuantity <= lowStockThreshold` show an orange "Low Stock" badge in the table
 
 ### Task 8.3 — Order Management
 
-- [ ] **Schema migration:** Add `notes String?` to the `Order` model in `prisma/schema.prisma`; run `npx prisma db push`
-- [ ] `src/app/admin/orders/page.tsx` — server component; paginated order table (20/page): order number (link), customer name+email, date, status badge, payment provider, total; filters: `?status=`, `?provider=`, `?from=YYYY-MM-DD`, `?to=YYYY-MM-DD`; search by order number or customer email via `?q=`
-- [ ] `src/app/admin/orders/[orderNumber]/page.tsx` — order detail page: customer info card, item list with thumbnails + per-item prices, shipping address, payment method label, totals breakdown, current status + timestamps; renders `<OrderStatusUpdater>`, `<TrackingForm>`, `<RefundPanel>`, `<OrderNotes>` components based on order state
-- [ ] `src/components/admin/orders/OrderStatusUpdater.tsx` — "use client"; dropdown of valid next statuses (enforces forward-only progression: PENDING→PAID→PROCESSING→SHIPPED→DELIVERED); confirm before changing; calls `PATCH /api/admin/orders/[orderNumber]/status`
-- [ ] `src/components/admin/orders/TrackingForm.tsx` — "use client"; input for tracking number; calls `PATCH /api/admin/orders/[orderNumber]/tracking`; success state shows "Email sent to customer"
-- [ ] `src/components/admin/orders/RefundPanel.tsx` — "use client"; shows refundable amount (order total); radio: Full Refund / Partial (custom amount input); confirmation modal before submitting; calls `POST /api/admin/orders/[orderNumber]/refund`; only shown when `paymentProvider === 'STRIPE'` and status is PAID/SHIPPED/DELIVERED
-- [ ] `src/components/admin/orders/OrderNotes.tsx` — "use client"; textarea for internal notes (not visible to customers); calls `PATCH /api/admin/orders/[orderNumber]/notes`
-- [ ] `PATCH /api/admin/orders/[orderNumber]/status` — Zod validated; enforces valid transitions (CANCELLED and REFUNDED are terminal); sets `shippedAt` when → SHIPPED, `deliveredAt` when → DELIVERED; logs action
-- [ ] `PATCH /api/admin/orders/[orderNumber]/tracking` — updates `trackingNumber`; calls `sendShippingNotificationEmail` from `src/lib/email.ts` (add this function if not already present); logs action
-- [ ] `POST /api/admin/orders/[orderNumber]/refund` — calls `stripe.refunds.create({ payment_intent: order.stripePaymentIntentId, amount? })`; on full refund sets order status to REFUNDED; on partial adds a note; logs action with amount detail; returns 400 if no `stripePaymentIntentId`
-- [ ] `PATCH /api/admin/orders/[orderNumber]/notes` — updates `notes` field; ADMIN-only; logs action
+- [x] **Schema migration:** Add `notes String?` to the `Order` model in `prisma/schema.prisma`; run `npx prisma db push` — field already existed, no migration needed
+- [x] `src/app/admin/orders/page.tsx` — server component; paginated order table (20/page): order number (link), customer name+email, date, status badge, payment provider, total; filters: `?status=`, `?provider=`, `?from=YYYY-MM-DD`, `?to=YYYY-MM-DD`; search by order number or customer email via `?q=`
+- [x] `src/app/admin/orders/[orderNumber]/page.tsx` — order detail page: customer info card, item list with thumbnails + per-item prices, shipping address, payment method label, totals breakdown, current status + timestamps; renders `<OrderStatusUpdater>`, `<TrackingForm>`, `<RefundPanel>`, `<OrderNotes>` components based on order state
+- [x] `src/components/admin/orders/OrderStatusUpdater.tsx` — "use client"; dropdown of valid next statuses (enforces forward-only progression: PENDING→PAID→PROCESSING→SHIPPED→DELIVERED); confirm before changing; calls `PATCH /api/admin/orders/[orderNumber]/status`
+- [x] `src/components/admin/orders/TrackingForm.tsx` — "use client"; input for tracking number; calls `PATCH /api/admin/orders/[orderNumber]/tracking`; success state shows "Email sent to customer"
+- [x] `src/components/admin/orders/RefundPanel.tsx` — "use client"; shows refundable amount (order total); radio: Full Refund / Partial (custom amount input); confirmation modal before submitting; calls `POST /api/admin/orders/[orderNumber]/refund`; only shown when `paymentProvider === 'STRIPE'` and status is PAID/SHIPPED/DELIVERED
+- [x] `src/components/admin/orders/OrderNotes.tsx` — "use client"; textarea for internal notes (not visible to customers); calls `PATCH /api/admin/orders/[orderNumber]/notes`
+- [x] `PATCH /api/admin/orders/[orderNumber]/status` — Zod validated; enforces valid transitions (CANCELLED and REFUNDED are terminal); sets `shippedAt` when → SHIPPED, `deliveredAt` when → DELIVERED; logs action
+- [x] `PATCH /api/admin/orders/[orderNumber]/tracking` — updates `trackingNumber`; calls `sendShippingNotificationEmail` from `src/lib/email.ts` (add this function if not already present); logs action
+- [x] `POST /api/admin/orders/[orderNumber]/refund` — calls `stripe.refunds.create({ payment_intent: order.paymentIntentId, amount? })`; on full refund sets order status to REFUNDED; on partial adds a note; logs action with amount detail; returns 400 if no `paymentIntentId`
+- [x] `PATCH /api/admin/orders/[orderNumber]/notes` — updates `notes` field; ADMIN-only; logs action
 
 ### Task 8.4 — Customer Management
 
-- [ ] **Schema migration:** Add `banned Boolean @default(false)` to `User` model in `prisma/schema.prisma`; run `npx prisma db push`
-- [ ] Update auth `authorize` callback in `src/app/api/auth/[...nextauth]/auth.ts` — check `user.banned`; return `null` to reject login for banned users (shows "Account suspended" error)
-- [ ] `src/app/admin/customers/page.tsx` — server component; paginated customer table (20/page): name, email, orders count, total spent (sum of non-CANCELLED/REFUNDED orders), registered date, banned badge if applicable; search by name or email via `?q=`; `?banned=true` filter
-- [ ] `src/app/admin/customers/[id]/page.tsx` — customer detail: profile card (name, email, phone, joined date, banned status), order history table (same data as account/orders), saved addresses list; action buttons: Verify Email, Ban Account, Unban Account
-- [ ] `PATCH /api/admin/customers/[id]/status` — body: `{ action: 'verify' | 'ban' | 'unban' }`; Zod validated; `verify` sets `emailVerified = new Date()`; `ban`/`unban` toggles `banned` field; logs action; returns 400 if attempting to ban yourself
-- [ ] `GET /api/admin/customers/export` — streams CSV response (`Content-Type: text/csv`; `Content-Disposition: attachment`); includes only users with a linked `EmailSubscriber` where `subscribed: true`; fields: name, email, orders count, total spent, joined date; logs action (no PII in log detail)
+- [x] **Schema migration:** Add `banned Boolean @default(false)` to `User` model in `prisma/schema.prisma`; run `npx prisma db push`
+- [x] Update auth `authorize` callback in `src/lib/auth.ts` — check `user.banned`; throws `AccountSuspended` error to reject login for banned users
+- [x] `src/app/admin/customers/page.tsx` — server component; paginated customer table (20/page): name, email, orders count, total spent (sum of non-CANCELLED/REFUNDED orders), registered date, banned badge if applicable; search by name or email via `?q=`; `?banned=true` filter
+- [x] `src/app/admin/customers/[id]/page.tsx` — customer detail: profile card (name, email, phone, joined date, banned status), order history table, saved addresses list; `<CustomerActions>` client component with Verify Email, Ban Account, Unban Account buttons
+- [x] `PATCH /api/admin/customers/[id]/status` — body: `{ action: 'verify' | 'ban' | 'unban' }`; Zod validated; `verify` sets `emailVerified = true`; `ban`/`unban` toggles `banned` field; logs action; returns 400 if attempting to ban yourself
+- [x] `GET /api/admin/customers/export` — streams CSV response (`Content-Type: text/csv`; `Content-Disposition: attachment`); includes only users whose email matches an active `EmailSubscriber` (`isActive: true`); fields: name, email, orders count, total spent, joined date; logs action (no PII in log detail)
 
 ### Task 8.5 — Discount Code Management
 
-- [ ] `src/app/admin/discounts/page.tsx` — server component; table of all discount codes: code, type, value, min order amount, expiry, max uses, used count, active status; "Create New Code" button opens `<DiscountForm>` in a modal or inline form
-- [ ] `src/components/admin/discounts/DiscountForm.tsx` — "use client"; fields: code (text + "Generate Random" button that fills a 8-char uppercase alphanumeric), type (PERCENTAGE / FIXED), value (number), minOrderAmount (optional), expiresAt (optional date picker), maxUses (optional number), isActive (toggle, default true); Zod-equivalent client validation; `onSave` callback
-- [ ] `POST /api/admin/discounts` — Zod validated; normalizes `code` to uppercase; 409 if code already exists; creates `DiscountCode`; logs action
-- [ ] `PUT /api/admin/discounts/[id]` — Zod validated partial update (all fields except `usedCount` and `id`); logs action
-- [ ] `PATCH /api/admin/discounts/[id]/toggle` — flips `isActive`; logs action; returns `{ isActive: boolean }`
-- [ ] `DELETE /api/admin/discounts/[id]` — hard delete; logs action; returns 409 if code has `usedCount > 0` (preserve history)
-- [ ] Discount detail: clicking a code row in the table fetches and lists all `Order` records where `discountCode === code` (join via Order model's discount code field); shows order number, customer, amount saved
+- [x] `src/app/admin/discounts/page.tsx` — server component; table of all discount codes: code, type, value, min order amount, expiry, max uses, used count, active status; "Create New Code" button opens `<DiscountForm>` inline
+- [x] `src/components/admin/discounts/DiscountForm.tsx` — "use client"; fields: code (text + "Generate Random" button that fills a 8-char uppercase alphanumeric), type (PERCENTAGE / FIXED), value (number), minOrderAmount (optional), expiresAt (optional date picker), maxUses (optional number), isActive (toggle, default true); client-side validation; `onSave` callback
+- [x] `POST /api/admin/discounts` — Zod validated; normalizes `code` to uppercase; 409 if code already exists; creates `DiscountCode`; logs action
+- [x] `PUT /api/admin/discounts/[id]` — Zod validated partial update (all fields except `usedCount` and `id`); logs action
+- [x] `PATCH /api/admin/discounts/[id]/toggle` — flips `isActive`; logs action; returns `{ isActive: boolean }`
+- [x] `DELETE /api/admin/discounts/[id]` — hard delete; logs action; returns 409 if code has `usedCount > 0` (preserve history)
+- [x] Discount detail: clicking a code row expands inline; calls `GET /api/admin/discounts/[id]/orders`; shows order number, customer, date, status, amount saved — requires `discountCode String?` and `discountAmount Decimal?` fields added to `Order` model (schema migrated)
 
 ### Task 8.6 — Analytics Dashboard
 
-- [ ] Install recharts: `npm install recharts @types/recharts` (if not already installed)
-- [ ] `src/app/admin/analytics/page.tsx` — client component (charts require client-side rendering); fetches from `GET /api/admin/analytics` on mount; renders: revenue area chart (daily for last 30 days), top 10 products bar chart, orders-by-status pie chart, customer stats cards
-- [ ] `GET /api/admin/analytics` — ADMIN-only; returns:
-  ```
-  {
-    dailyRevenue:    { date: string, revenue: number, orderCount: number }[]  // last 30 days
-    ordersByStatus:  Record<OrderStatus, number>
-    topProducts:     { productId: string, title: string, totalSold: number, revenue: number }[]  // top 10
-    customerStats:   { total: number, newLast30Days: number, returning: number }
-  }
-  ```
-  Use Prisma `groupBy` for daily revenue (group by `createdAt` date, sum `total`, where `status IN [PAID, SHIPPED, DELIVERED, REFUNDED]`); use `$queryRaw` only if `groupBy` cannot produce the date-bucketed result
-- [ ] Revenue chart: `<AreaChart>` from recharts; x-axis = date, y-axis = revenue in dollars; tooltip shows revenue + order count
-- [ ] Top products chart: `<BarChart>` horizontal; product title on y-axis, quantity sold on x-axis
-- [ ] Orders by status: `<PieChart>` with legend; colors match `OrderStatusBadge` colors from Phase 7
-- [ ] _Note:_ GA4 (`NEXT_PUBLIC_GA_MEASUREMENT_ID`) is wired in Phase 10 — do not add GA4 script here; conversion rate tracking (add-to-cart → checkout → purchase funnel) is also Phase 10
+- [x] Install recharts: `npm install recharts` (ships own types, no @types package needed)
+- [x] `src/app/admin/analytics/page.tsx` — server wrapper that renders `<AnalyticsDashboard>` client component; fetches from `GET /api/admin/analytics` on mount; renders: revenue area chart, top 10 products bar chart, orders-by-status pie chart, customer stats cards
+- [x] `GET /api/admin/analytics` — ADMIN-only; returns `dailyRevenue`, `ordersByStatus`, `topProducts`, `customerStats`; daily revenue uses `$queryRaw` (Prisma `groupBy` cannot date-bucket a DateTime column); missing days filled with 0
+- [x] Revenue chart: `<AreaChart>` from recharts; x-axis = date, y-axis = revenue; tooltip shows formatted dollar amount
+- [x] Top products chart: `<BarChart>` horizontal layout; product title on y-axis, units sold on x-axis
+- [x] Orders by status: `<PieChart>` with legend; colors match `OrderStatusBadge` colors
+- [x] _Note:_ GA4 (`NEXT_PUBLIC_GA_MEASUREMENT_ID`) is wired in Phase 11 — not added here
 
 ### Phase 8 Verification
 
-- [ ] Log in as non-admin user — confirm visiting `/admin` returns 403 (not a redirect)
-- [ ] Unauthenticated user visits `/admin` — confirm redirect to `/auth/login?callbackUrl=/admin`
-- [ ] Log in as admin — confirm sidebar renders and all nav links (`/admin/products`, `/admin/orders`, `/admin/customers`, `/admin/ebay-sync`, `/admin/discounts`, `/admin/analytics`) load without errors
-- [ ] Stats cards on `/admin` dashboard show non-zero values (assuming seeded data exists)
-- [ ] Create a product manually via `/admin/products/new` → confirm it appears in `/shop`
-- [ ] Toggle a product inactive → confirm it disappears from `/shop`; toggle active again → confirm it returns
-- [ ] Bulk deactivate 2 products → confirm both disappear from `/shop`
-- [ ] Update an order status to SHIPPED → confirm `shippedAt` timestamp is set
-- [ ] Add tracking number to an order → confirm customer shipping notification email is received
-- [ ] Process a Stripe refund via admin panel → confirm Stripe dashboard shows the refund
-- [ ] Create a discount code → apply it at checkout → confirm order total reflects the discount; view usage count in `/admin/discounts` (should be 1)
-- [ ] Ban a customer account → attempt login with that account → confirm login is blocked
-- [ ] Export customer CSV → confirm only subscribed customers are included with correct fields
-- [ ] Check `AdminActivityLog` table in DB — confirm entries logged for each action above
-- [ ] Load `/admin/analytics` — confirm all charts render with data
+- [x] Log in as non-admin user — confirm visiting `/admin` returns 403 (not a redirect) — **verified by code**: `admin/layout.tsx` renders 403 page (not `redirect()`) for authenticated non-ADMIN users
+- [x] Unauthenticated user visits `/admin` — confirm redirect to `/auth/login?callbackUrl=/admin` — **verified by code**: `admin/layout.tsx` line 12 calls `redirect("/auth/login?callbackUrl=/admin")`
+- [x] Log in as admin — confirm sidebar renders and all nav links (`/admin/products`, `/admin/orders`, `/admin/customers`, `/admin/ebay-sync`, `/admin/discounts`, `/admin/analytics`) load without errors — **verified by code + build**: all 7 nav links present in `AdminSidebar.tsx`; all routes confirmed compiled in build output
+- [ ] Stats cards on `/admin` dashboard show non-zero values (assuming seeded data exists) — **manual test required** (needs running app + seeded data)
+- [ ] Create a product manually via `/admin/products/new` → confirm it appears in `/shop` — **manual test required**
+- [ ] Toggle a product inactive → confirm it disappears from `/shop`; toggle active again → confirm it returns — **manual test required**
+- [ ] Bulk deactivate 2 products → confirm both disappear from `/shop` — **manual test required**
+- [x] Update an order status to SHIPPED → confirm `shippedAt` timestamp is set — **verified by code**: `orders/[orderNumber]/status/route.ts` line 67 sets `shippedAt: now` on SHIPPED transition
+- [ ] Add tracking number to an order → confirm customer shipping notification email is received — **code verified** (tracking route calls `sendShippingNotificationEmail`); email receipt requires **manual test**
+- [ ] Process a Stripe refund via admin panel → confirm Stripe dashboard shows the refund — **manual test required** (needs live Stripe test mode)
+- [x] Create a discount code → apply it at checkout → confirm order total reflects the discount; view usage count in `/admin/discounts` (should be 1) — **verified by code**: checkout `create-intent` validates code, applies discount, increments `usedCount`, and now saves `discountCode`/`discountAmount` to Order (bug fixed during verification — those fields were not being written)
+- [x] Ban a customer account → attempt login with that account → confirm login is blocked — **verified by code**: `auth.ts` throws `AccountSuspended` error when `user.banned === true`
+- [x] Export customer CSV → confirm only subscribed customers are included with correct fields — **verified by code**: export route queries `EmailSubscriber` with `isActive: true`, matches users by email, outputs name/email/orders/total_spent/joined
+- [ ] Check `AdminActivityLog` table in DB — confirm entries logged for each action above — **manual test required** (DB inspection)
+- [ ] Load `/admin/analytics` — confirm all charts render with data — **manual test required** (needs running app with order data)
 
 ---
 
-## Phase 9 — Email System & Marketing
+## Phase 9.00 — Make-an-Offer System
+
+_Goal: Let customers submit price offers on individual cards, with a hard server-side floor of 70% of the buy-now price. Accepted offers generate a time-limited one-time purchase token that locks the offer price into the existing Stripe checkout flow._
+
+**Architecture notes:**
+
+- Offers are validated server-side: `offerPrice >= product.price * 0.70` — the 70% floor cannot be bypassed by the client
+- Accepted offers issue a `purchaseToken` (crypto-random, unique) with a 48-hour expiry — no separate payment path needed; the token is passed to the existing `/checkout` flow which substitutes the offer price for that one line item
+- `POST /api/checkout/create-intent` re-validates the token server-side before creating the Stripe PaymentIntent — client can never forge the price
+- Daily Vercel Cron auto-expires stale offers
+- Offer system requires authentication — guests must log in or register to make an offer
+
+### Schema Migration
+
+Add the following to `prisma/schema.prisma`:
+
+```
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  PURCHASED
+}
+
+model Offer {
+  id              String      @id @default(uuid())
+  productId       String
+  product         Product     @relation(fields: [productId], references: [id])
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  offerPrice      Decimal     @db.Decimal(10, 2)
+  status          OfferStatus @default(PENDING)
+  purchaseToken   String?     @unique
+  tokenExpiresAt  DateTime?
+  adminNote       String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([productId, status])
+  @@index([userId])
+}
+```
+
+Run `npx prisma db push`. Add `offers` relation to `User` and `Product` models.
+
+- [x] `OfferStatus` enum added; `Offer` model added; `offerToken String?` added to `Order`; `offers` relation added to `User` and `Product`; `npx prisma db push` applied
+
+### Task 9.01.1 — Product Detail UI
+
+- [x] Add "Make an Offer" button below `<AddToCartButton>` on `/product/[slug]` — only shown when product is `isActive`, in stock, and has a price
+- [x] If not logged in: clicking redirects to `/auth/login?callbackUrl=/product/[slug]`
+- [x] If logged in: opens `<OfferModal>` client component; button label changes to "Offer Pending" (disabled) if user already has a PENDING offer on this product (check via `GET /api/offers/[productId]/status`)
+- [x] `src/components/products/OfferModal.tsx` — client modal:
+  - Current buy-now price displayed
+  - "Minimum offer: $X.XX" hint — 70% of price, calculated client-side for UX feedback only (server re-validates independently)
+  - Price input (`type="number"`, `step="0.01"`, `min` set to 70% of price)
+  - Submit button with loading state
+  - Success state: "Offer submitted! We'll email you when the seller responds."
+  - Error state (server 400): "Offer must be at least $X.XX (70% of asking price)"
+  - Error state (server 409): "You already have a pending offer on this item."
+
+### Task 9.01.2 — Offer API Routes
+
+- [x] `POST /api/offers` — body: `{ productId, offerPrice }`:
+  - Session required — 401 if unauthenticated
+  - Zod validated: `offerPrice` must be a positive number with max 2 decimal places
+  - Fetch product from DB; 404 if not found or `isActive: false`; 400 if `stockQuantity <= 0`
+  - **Server-side floor check:** `offerPrice < product.price * 0.70` → 400 `{ error: "Offer too low", minimum: product.price * 0.70 }`
+  - Check for existing PENDING offer from same user on same product → 409 `{ error: "You already have a pending offer on this item" }`
+  - Create `Offer` with status `PENDING`
+  - Send admin notification email via Resend to `EMAIL_FROM`: product title + link, offered price, asking price, % of asking, customer name + email
+  - Send customer confirmation email: "Your offer of $X.XX on [Product] was received — we'll respond within 48 hours"
+  - Rate limit: 5 offers per user per hour (via existing rate limiter)
+- [x] `GET /api/offers` — session required; returns paginated list of all offers for the logged-in user (for account dashboard); includes product title, slug, images, asking price
+- [x] `GET /api/offers/[productId]/status` — session required; returns `{ hasOffer: boolean, status?: OfferStatus, purchaseToken?: string }` for the logged-in user on that product; returns `{ hasOffer: false }` if unauthenticated (no error)
+- [x] Add `offers` to `API_PATTERN` regex and matcher in `src/proxy.ts`
+
+### Task 9.01.3 — Admin Offer Management
+
+- [x] Add "Offers" link to `src/components/admin/AdminSidebar.tsx` nav (between Discounts and Analytics)
+- [x] `src/app/admin/offers/page.tsx` — server component; paginated table (20/page):
+  - Columns: product thumbnail + title, customer name + email, offered price, asking price, % of asking, submitted date, status badge
+  - Filter by status: `?status=PENDING|ACCEPTED|DECLINED|EXPIRED|PURCHASED` (default shows PENDING first)
+  - PENDING rows highlighted with a yellow-50 background
+- [x] `src/components/admin/offers/OfferActions.tsx` — "use client"; renders per PENDING row:
+  - **Accept** button (green) — calls `PATCH /api/admin/offers/[id]/accept`
+  - **Decline** button (red) — expands an inline textarea for an optional note; "Confirm Decline" submits `PATCH /api/admin/offers/[id]/decline`
+  - `useTransition` + `router.refresh()` for optimistic UI; buttons disabled while pending
+- [x] `PATCH /api/admin/offers/[id]/accept` — ADMIN only:
+  - Verify offer exists and is PENDING; 404 otherwise
+  - Generate `purchaseToken = crypto.randomBytes(32).toString('hex')`
+  - Set `tokenExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000)`; set status `ACCEPTED`
+  - Send customer email: "Your offer of $X.XX was accepted! Use the link below to complete your purchase within 48 hours." — link to `/checkout?offerToken=[purchaseToken]`
+  - Log action via `logAdminAction`; return `{ ok: true }`
+- [x] `PATCH /api/admin/offers/[id]/decline` — ADMIN only:
+  - Verify offer exists and is PENDING; 404 otherwise
+  - Body: `{ adminNote?: string }` (Zod validated; max 500 chars)
+  - Set status `DECLINED`; save `adminNote`
+  - Send customer email: "Your offer on [Product] was not accepted." + optional note if provided; "Browse our shop for other great cards: [/shop link]"
+  - Log action; return `{ ok: true }`
+
+### Task 9.01.4 — Accepted Offer Checkout Flow
+
+- [x] `GET /api/offers/token/[token]` — public route:
+  - Find offer by `purchaseToken`; 404 if not found
+  - Validate: status is `ACCEPTED`, `tokenExpiresAt > now()`, product is `isActive` and `stockQuantity > 0`; 400 with descriptive error otherwise
+  - Returns `{ product: { id, title, slug, price, images }, offerPrice }`
+- [x] Update `src/app/checkout/CheckoutForm.tsx` — on mount, if `offerToken` query param present:
+  - Call `GET /api/offers/token/[token]`; if valid, override cart with `[{ productId, quantity: 1, priceAtAdd: offerPrice }]` and show "Offer Price Applied: $X.XX" banner (green); disable cart editing in this mode
+  - If token invalid/expired: show error banner "This offer link has expired or already been used" and fall back to normal cart
+- [x] Update `POST /api/checkout/create-intent` — if `offerToken` present in request body:
+  - Re-validate token server-side (same checks as `GET /api/offers/token/[token]`) — never trust client price
+  - Use `offerPrice` from DB for that product's line item; all other items use DB prices as usual
+  - Do NOT mark offer as PURCHASED here — wait for webhook confirmation
+- [x] Update `POST /api/webhooks/stripe` — on `payment_intent.succeeded`: if `offerToken` was stored on the Order (add `offerToken String?` field to `Order` model), find the Offer and set status `PURCHASED`
+- [x] Add `offerToken String?` field to `Order` model in Prisma schema; run `npx prisma db push`
+- [x] `GET /api/cron/expire-offers` — protected by `Authorization: Bearer CRON_SECRET`:
+  - Sets status `EXPIRED` for: PENDING offers where `createdAt < now() - 72h`; ACCEPTED offers where `tokenExpiresAt < now()`
+  - Returns `{ expired: number }`
+- [x] Add to `vercel.json` cron: `{ "path": "/api/cron/expire-offers", "schedule": "0 0 * * *" }` (midnight UTC daily)
+
+### Task 9.01.5 — Customer Account: My Offers
+
+- [x] `src/app/account/offers/page.tsx` — server component; table of all offers for the session user:
+  - Columns: product thumbnail + title, offered price, asking price, status badge, submitted date
+  - ACCEPTED rows show a "Purchase Now →" link to `/checkout?offerToken=[token]` with a 48-hour countdown (`tokenExpiresAt` displayed)
+  - Empty state: "No offers yet — browse our shop and make an offer on any listing!"
+- [x] Add "Offers" link to `src/components/account/AccountSidebar.tsx` (between Orders and Addresses)
+
+### Phase 9.01 Verification
+
+- [x] Submit offer below 70% → confirm 400 response with correct minimum amount shown in UI — **verified by code**: `POST /api/offers` computes `minimum = ceil(price * 0.70 * 100) / 100`, returns 400 `{ error: "Offer too low", minimum }`; `OfferModal` catches the 400 and renders the minimum in the error message
+- [ ] Submit valid offer (≥ 70%) → confirm admin notification email received + customer confirmation email received; check `Offer` row in DB with status PENDING — **code verified** (Offer created with status PENDING, both emails sent via Resend); **email receipt requires manual test**
+- [x] Try to submit a second offer on the same product while one is PENDING → confirm 409 and "Offer Pending" disabled button in UI — **verified by code**: `POST /api/offers` queries for existing PENDING offer and returns 409; `MakeOfferButton` fetches status on mount and sets `hasPendingOffer = true` which disables button and changes label to "Offer Pending"
+- [ ] Admin accepts offer → confirm customer acceptance email with working checkout link; offer status = ACCEPTED in DB — **code verified** (`PATCH /api/admin/offers/[id]/accept` sets status ACCEPTED, generates 32-byte hex token, sets 48h expiry, sends acceptance email with `/checkout?offerToken=[token]` link); **email receipt + link requires manual test**
+- [ ] Admin declines offer with a note → confirm customer decline email includes the note; offer status = DECLINED in DB — **code verified** (`PATCH /api/admin/offers/[id]/decline` sets DECLINED, saves adminNote, includes note in email body); **email receipt requires manual test**
+- [ ] Navigate to accepted offer checkout link → confirm "Offer Price Applied" banner; complete purchase with Stripe test card → confirm Offer status = PURCHASED in DB — **code verified** (CheckoutForm validates token on mount, renders green banner; create-intent re-validates server-side and uses offer price; webhook sets PURCHASED inside fulfillment transaction); **end-to-end requires manual test**
+- [x] Attempt to use the same offer checkout link a second time → confirm 400 / expired error — **verified by code**: `GET /api/offers/token/[token]` checks `status !== "ACCEPTED"` and returns 400 `"This offer has already been purchased"` when status is PURCHASED; CheckoutForm shows the error banner
+- [x] Manually set `tokenExpiresAt` to the past in DB → confirm checkout shows "expired" error — **verified by code**: both token route and create-intent check `tokenExpiresAt < new Date()` and return 400 `"This offer link has expired"`; CheckoutForm renders the error page
+- [x] Run `GET /api/cron/expire-offers` with correct `Authorization` header → confirm PENDING/ACCEPTED offers past their thresholds flip to EXPIRED; confirm 401 without header — **verified by code**: route checks `auth !== \`Bearer ${cronSecret}\``and returns 401;`updateMany` correctly targets PENDING (createdAt < 72h ago) and ACCEPTED (tokenExpiresAt < now); **actual DB flip requires manual test with live data**
+
+---
+
+## Phase 9.02 — Customer Messaging System
+
+_Goal: Allow customers (logged-in or guest) to send messages to the admin. Messages are stored in the database for inbox history and trigger an instant email notification to the admin. Admin replies directly from their email client — no in-app reply system needed._
+
+**Architecture notes (and why this approach):**
+
+- **Hybrid DB + email** is the right fit for a single-admin small business:
+  - DB storage → full inbox history in the admin dashboard; status tracking (Unread/Read/Resolved)
+  - Email notification → instant alert without having to check the dashboard
+  - Admin replies via regular email (Reply-To header set to customer's email) — zero extra UI needed
+  - Customer gets an auto-confirmation email so they know their message was received
+- If in-app replies are ever needed later, the `CustomerMessage` model can be extended with a `MessageReply` relation without changing the core structure
+- Guests can message without an account (name + email collected in form); logged-in users have name/email pre-filled
+
+### Schema Migration
+
+Add the following to `prisma/schema.prisma`:
+
+```
+enum MessageStatus {
+  UNREAD
+  READ
+  RESOLVED
+}
+
+model CustomerMessage {
+  id        String        @id @default(uuid())
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id])
+  name      String
+  email     String
+  subject   String
+  body      String        @db.Text
+  productId String?
+  product   Product?      @relation(fields: [productId], references: [id])
+  status    MessageStatus @default(UNREAD)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([status])
+  @@index([userId])
+}
+```
+
+~~Run `npx prisma db push`. Add `messages` relation to `User` and `Product` models.~~ ✅ Done
+
+### Task 9.02.1 — Contact Page & Form
+
+- [x] `src/app/contact/page.tsx` — server component; `getServerSession(authOptions)` to pass `user` (name + email) to `<ContactForm>` for pre-fill; renders page title + `<ContactForm>`
+- [x] `src/components/contact/ContactForm.tsx` — "use client"; fields:
+  - **Name** — required, max 100 chars; pre-filled + readonly if logged in
+  - **Email** — required, valid email; pre-filled + readonly if logged in
+  - **Subject** — `<select>`: General Question | Order Issue | Product Inquiry | Other
+  - **Message** — textarea; required; min 10 chars, max 2000 chars; character counter shown
+  - **Honeypot** — hidden input `name="website"` (must be empty; bots fill it); checked server-side
+  - **Cloudflare Turnstile** for guest users (use `NEXT_PUBLIC_TURNSTILE_SITE_KEY` env var); not shown if logged in
+  - Submit button with loading state
+  - Success state: "Message sent! We'll reply to [email] within 1–2 business days."
+  - Error states: field-level inline errors; generic "Something went wrong" for 500s
+- [x] Add `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to `.env.local.example` (already present)
+- [x] Add "Contact" link in `src/components/layout/Footer.tsx` (currently a placeholder)
+- [x] Add `contact` to `API_PATTERN` regex and `src/proxy.ts` matcher (already present)
+
+### Task 9.02.2 — Product-Specific "Ask a Question"
+
+- [x] On `src/app/product/[slug]/page.tsx`: add an "Ask a Question" text link below the Make-an-Offer and Add-to-Cart buttons
+- [x] Link to `/contact?productId=[product.id]&productName=[encodeURIComponent(product.title)]`
+- [x] In `ContactForm`: read `productId` and `productName` query params on mount; if present, show a read-only "About: [Product Name]" chip above the form and pre-select "Product Inquiry" in the Subject dropdown; pass `productId` in the API body
+
+### Task 9.02.3 — Contact API Route
+
+- [x] `POST /api/contact` — Zod schema:
+  - `name` (1–100 chars), `email` (valid email), `subject` (one of the 4 allowed values), `body` (10–2000 chars), `productId` (optional UUID), `turnstileToken` (optional string — required for guests)
+  - **Honeypot check:** if `website` field is non-empty → silently return `{ ok: true }` (don't create message; don't alert bot)
+  - **Turnstile validation** for guests: POST to `https://challenges.cloudflare.com/turnstile/v0/siteverify` with `TURNSTILE_SECRET_KEY`; reject if invalid
+  - **Rate limit:** 3 submissions per IP per hour; 10 per email per day
+  - If `productId` provided: verify product exists in DB (`isActive: true`); 400 if not found
+  - Create `CustomerMessage` in DB (status `UNREAD`; set `userId` from session if logged in; `productId` if valid)
+  - Send admin notification email via Resend to `EMAIL_FROM`:
+    - Subject: `[New Message] [subject] — from [name]`
+    - Body: sender name, email, subject, message body, product link (if any)
+    - **`Reply-To` header set to customer's email** — admin hits Reply in Gmail and it goes straight to the customer
+  - Send customer auto-reply email: "Thanks [name]! We received your message and will respond within 1–2 business days. Your message: [body excerpt]"
+  - Returns `{ ok: true }`
+
+### Task 9.02.4 — Admin Messages Inbox
+
+- [x] Add "Messages" link to `src/components/admin/AdminSidebar.tsx` with an unread count badge (red circle, number); placed after Analytics
+- [x] `src/app/admin/messages/page.tsx` — server component; paginated table (20/page):
+  - Columns: sender name + email, subject, product link (if any), received date, status badge (UNREAD=red, READ=gray, RESOLVED=green)
+  - Filter: `?status=UNREAD|READ|RESOLVED` — default shows UNREAD first
+  - UNREAD rows shown in bold
+  - Clicking a row navigates to message detail
+- [x] `src/app/admin/messages/[id]/page.tsx` — server component:
+  - Fetches message by ID; 404 if not found; ADMIN check
+  - **Auto-marks as READ** if status was UNREAD (Prisma update on page load)
+  - Displays: sender name, email, subject, date, product link (if any), full message body
+  - **"Reply via email" button**: `<a href="mailto:[email]?subject=Re: [subject]">` — opens admin's mail client with recipient + subject pre-filled; no JS needed
+  - **Status buttons**: "Mark as Resolved" (if READ) / "Reopen" (if RESOLVED) — client component `<MessageStatusButton>` calling `PATCH /api/admin/messages/[id]/status`
+  - **Delete button**: calls `DELETE /api/admin/messages/[id]`; redirects to `/admin/messages` on success; `window.confirm` prompt before submitting
+- [x] `src/components/admin/messages/MessageStatusButton.tsx` — "use client"; `useTransition` + `router.refresh()`
+- [x] `PATCH /api/admin/messages/[id]/status` — ADMIN only; body: `{ status: 'READ' | 'RESOLVED' | 'UNREAD' }`; Zod validated; updates status; logs action; returns `{ status }`
+- [x] `GET /api/admin/messages/unread-count` — ADMIN only; returns `{ count: number }` (count of UNREAD messages); used for sidebar badge
+- [x] `AdminSidebar.tsx`: add `useEffect` + `setInterval` (60s) to poll `GET /api/admin/messages/unread-count` and update the badge count in state; initial fetch on mount
+- [x] `DELETE /api/admin/messages/[id]` — ADMIN only; hard delete; logs action; returns 204
+
+### Phase 9.02 Verification
+
+- [ ] Submit contact form as a **guest** → confirm admin notification email received with correct Reply-To header (reply to it and confirm it goes to the customer's address); confirm customer auto-reply received; check DB row with status UNREAD
+- [ ] Submit contact form as a **logged-in user** → confirm name + email were pre-filled and readonly; confirm `userId` is set on the DB row
+- [ ] Click "Ask a Question" on a product page → confirm contact form pre-fills product name + selects "Product Inquiry"; confirm `productId` is linked on the DB row
+- [ ] Submit form with message body < 10 chars → confirm 400 validation error shown inline
+- [ ] Submit 4 messages within an hour from same IP → confirm 4th returns 429 rate-limit error
+- [ ] Honeypot: submit form with `website` field filled → confirm silently returns `{ ok: true }` but NO message is created in DB and NO email sent
+- [ ] Admin opens message detail → confirm status auto-changes to READ; confirm READ badge in table
+- [ ] Admin clicks "Mark as Resolved" → confirm status = RESOLVED in DB and badge updates
+- [ ] Unread count badge in sidebar: submit a new message → confirm count increments; open message → confirm count drops; mark all as resolved → confirm count = 0
+- [ ] "Reply via email" button → confirm `mailto:` link has correct `to` and `subject` pre-filled
+- [ ] Admin deletes a message → confirm row removed from table; confirm 204 returned
+
+---
+
+## Phase 9.03 — eBay Reviews Integration & Storefront Quick Access
+
+_Goal: Pull Casa Cards & Collectibles' real eBay buyer feedback into the website to build buyer trust, and give visitors a fast, prominent path back to the eBay store for customers who prefer shopping there. This should take the place of the shop by sport section on the home page below the featured section._
+
+**Architecture notes:**
+
+- eBay exposes seller feedback via the **Feedback API** (`GET /sell/feedback/v1/feedback_summary`) and the **Trading API** (`GetFeedback` call) — use whichever endpoint is accessible with the existing OAuth token; map results to a lightweight `EbayReview` DB model so the site never makes a live eBay call on page load
+- Reviews are read-only (we never write back to eBay); the sync is one-way: eBay → DB
+- A scheduled Vercel Cron syncs reviews daily (new feedback only); admin can also trigger a manual sync from the eBay Sync admin page
+- eBay seller stats (positive percentage, total feedback count) are stored as a small JSON blob in a `EbaySellerStats` singleton row — refreshed on every review sync
+- The eBay store quick-access section lives on the homepage and in the footer; it is a static Next.js server component — no client JS needed
+
+### Schema Migration
+
+Add the following to `prisma/schema.prisma`:
+
+```
+model EbayReview {
+  id           String   @id @default(uuid())
+  ebayFeedbackId String @unique          -- eBay's native feedback ID (prevents duplicates)
+  rating       Int                       -- 1 (negative) | 0 (neutral) | 1 (positive); stored as -1/0/1
+  comment      String?  @db.Text
+  reviewerName String?                   -- buyer username (eBay username, not PII)
+  itemTitle    String?                   -- title of the purchased eBay listing
+  itemId       String?                   -- eBay itemId (for cross-linking to product page if synced)
+  transactionDate DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([rating])
+  @@index([transactionDate])
+}
+
+model EbaySellerStats {
+  id                String   @id @default("singleton")
+  positiveFeedbackPercent Decimal @db.Decimal(5, 2)
+  totalFeedbackCount Int
+  positiveFeedbackCount Int
+  negativeFeedbackCount Int
+  neutralFeedbackCount  Int
+  updatedAt         DateTime @updatedAt
+}
+```
+
+Run `npx prisma db push`.
+
+### Task 9.03.1 — eBay Review Sync Service
+
+- [x] `src/lib/ebay/reviews.ts` — review sync module:
+  - `fetchEbayFeedback()` — calls the eBay Trading API (AuthnAuth) with XML; paginates through all feedback pages (200 per page); maps each record to the `EbayReview` schema fields
+  - `syncEbayReviews()` — upserts reviews by `ebayFeedbackId` (idempotent; existing reviews are never overwritten); computes and upserts the `EbaySellerStats` singleton; returns `{ created, skipped, total }` summary
+  - All errors are caught per-item; a single bad record does not abort the full sync
+
+- [x] `GET /api/cron/ebay-reviews` — protected by `Authorization: Bearer CRON_SECRET`; calls `syncEbayReviews()`; added to `vercel.json` cron: `{ "path": "/api/cron/ebay-reviews", "schedule": "0 6 * * *" }` (6 AM UTC daily)
+
+- [x] Add "Sync eBay Reviews" button to `src/app/admin/ebay-sync/page.tsx`:
+  - `POST /api/admin/ebay-reviews/sync` — ADMIN only; calls `syncEbayReviews()`; returns `{ created, skipped, total }`; logs action via `logAdminAction`
+  - Button shows live counts on success with created/skipped/total breakdown
+
+### Task 9.03.2 — Reviews Display Components
+
+- [ ] `src/components/reviews/EbayReviewCard.tsx` — displays a single eBay review:
+  - Star rating indicator (filled star for positive, half for neutral, empty for negative)
+  - Reviewer username (masked to first 3 chars + `***` for privacy: `usr***`)
+  - Comment body (truncated to 200 chars with "Read more" expand toggle if longer)
+  - Item title (if present; links to `/product/[slug]` when `itemId` matches a synced product in DB)
+  - Transaction date formatted as "Month YYYY"
+  - eBay verified badge icon with tooltip "Verified eBay Purchase"
+
+- [ ] `src/components/reviews/EbayReviewsCarousel.tsx` — "use client" carousel:
+  - Fetches from `GET /api/reviews/ebay?limit=10` on mount (positive reviews only, randomized order)
+  - Auto-advances every 5 seconds; pause on hover
+  - Left/right arrow controls; dot indicators
+  - Shows seller stats bar above carousel: ⭐ **X% Positive Feedback** · **Y Total Sales** · Verified eBay Seller badge
+
+- [ ] `src/components/reviews/EbaySellerBadge.tsx` — compact trust badge server component:
+  - Reads `EbaySellerStats` singleton from DB
+  - Renders: eBay star rating icon, positive feedback percentage, total feedback count
+  - Hyperlinks to `https://www.ebay.com/str/casa_cards_and_collectibles`
+  - Used inline on the homepage trust badges row and the footer
+
+- [ ] `GET /api/reviews/ebay` — public, no auth required:
+  - Query params: `limit` (1–50, default 10), `rating` (`positive` | `neutral` | `negative` | `all`, default `positive`), `page` (offset-based)
+  - Returns paginated list of `EbayReview` records + `sellerStats` from `EbaySellerStats` singleton
+  - Add `reviews` to `API_PATTERN` regex and `src/proxy.ts` matcher
+
+### Task 9.03.3 — Homepage eBay Reviews Section
+
+- [ ] Update `src/app/page.tsx` — add two new sections below the featured products grid:
+
+  **Section A — "What Our Buyers Are Saying"**
+  - `<EbayReviewsCarousel />` component (described in Task 9.03.2)
+  - Section heading: "What Our eBay Buyers Are Saying"
+  - Sub-heading: `<EbaySellerBadge />` inline with the section title
+  - Only rendered when `EbaySellerStats` exists in DB (graceful no-op during initial setup before first sync)
+
+  **Section B — "Also Find Us on eBay"**
+  - Card/banner with the eBay logo (use `public/ebay-logo.svg`; add the file to `public/`)
+  - Store name: "Casa Cards & Collectibles on eBay"
+  - Bullet-point value props for eBay buyers: eBay buyer protection, easy returns via eBay's Resolution Center, millions of verified buyers
+  - Primary CTA button: "Visit Our eBay Store →" (links to `https://www.ebay.com/str/casa_cards_and_collectibles`; `target="_blank" rel="noopener noreferrer"`)
+  - Secondary link: "See All Feedback on eBay" (links to the eBay feedback profile page)
+  - Styled with a light yellow/gold background to visually distinguish from the rest of the page
+
+### Task 9.03.4 — Product Page eBay Cross-Link Enhancement
+
+- [ ] `src/app/product/[slug]/page.tsx` — the existing eBay cross-link (`ebayItemId` check) already exists from Phase 5.3; enhance it:
+  - Replace the bare link with a styled "Also available on eBay" pill/badge below the price
+  - Include a small eBay logo SVG inline with the badge
+  - Show a tooltip on hover: "Purchase this item on eBay for eBay's buyer protection guarantee"
+  - Only rendered when `product.ebayItemId` is set and `product.isActive` is true
+
+### Task 9.03.5 — Header & Footer eBay Quick Access
+
+- [ ] `src/components/layout/Header.tsx` — add a subtle "Shop on eBay ↗" text link in the desktop nav (right side, after existing nav items); styled in eBay's brand yellow (`#F5AF02`) or as a small outlined badge; `target="_blank" rel="noopener noreferrer"`
+
+- [ ] `src/components/layout/Footer.tsx` — in the existing store links column, add:
+  - "Visit eBay Store" link with external icon
+  - `<EbaySellerBadge />` component — shows live positive feedback percentage and total count pulled from DB
+
+### Task 9.03.6 — Dedicated Reviews Page
+
+- [ ] `src/app/reviews/page.tsx` — server component; fetches all positive `EbayReview` records (paginated, 20/page, newest first) + `EbaySellerStats`; renders:
+  - Page header: "Customer Reviews" with `<EbaySellerBadge />` showing aggregate stats
+  - Rating breakdown bar chart (positive / neutral / negative counts with percentage bars)
+  - Grid of `<EbayReviewCard>` components
+  - Pagination controls
+  - CTA banner at the bottom: "Bought from us? Leave feedback on eBay" → link to eBay feedback page
+  - Dynamic `generateMetadata` — title: "Customer Reviews | Casa Cards & Collectibles", description: "See what X satisfied eBay buyers say about Casa Cards & Collectibles — X% positive feedback."
+- [ ] Add "Reviews" link to `src/components/layout/Footer.tsx` (under the store links column)
+
+### Phase 9.03 Verification
+
+- [ ] Run `POST /api/admin/ebay-reviews/sync` (after adding `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET`) → confirm `EbayReview` rows populated in DB and `EbaySellerStats` singleton created; check `created` count matches eBay feedback page
+- [ ] Load homepage → confirm "What Our Buyers Are Saying" carousel renders with real reviews; confirm "Also Find Us on eBay" section is visible and CTA links to the correct eBay store URL
+- [ ] Load homepage trust badges row → confirm `<EbaySellerBadge />` shows correct positive percentage and total count from DB
+- [ ] Load a product page where `ebayItemId` is set → confirm the enhanced "Also available on eBay" pill renders with logo and correct external link
+- [ ] Load a product page where `ebayItemId` is null → confirm the eBay pill is NOT rendered
+- [ ] Navigate to `/reviews` → confirm full review grid renders; confirm rating breakdown bar totals match `EbaySellerStats` counts; confirm pagination works
+- [ ] Confirm `GET /api/reviews/ebay?rating=positive&limit=5` returns 5 positive reviews; `?rating=all` returns mixed; invalid `limit` (e.g., 999) → confirm capped at 50 (no error)
+- [ ] Confirm cron `GET /api/cron/ebay-reviews` returns 401 without the correct `Authorization: Bearer CRON_SECRET` header
+- [ ] Confirm cron syncs correctly: add a test review manually to the DB with a known `ebayFeedbackId`; re-run sync → confirm it is NOT duplicated (idempotent upsert)
+- [ ] Check footer on desktop: confirm "Visit eBay Store" link present; `<EbaySellerBadge />` shows stats; "Reviews" link navigates to `/reviews`
+- [ ] Check header on desktop: confirm "Shop on eBay ↗" link is visible; mobile: confirm it is either accessible in the drawer or intentionally omitted (choose one — document the decision)
+
+---
+
+## Phase 9.0 — Email System & Marketing
 
 _Goal: Automated transactional emails and opt-in marketing._
 
@@ -780,7 +1183,7 @@ _Goal: Automated transactional emails and opt-in marketing._
 - [ ] Unsubscribe flow: one-click unsubscribe link in every marketing email
 - [ ] Integrate with email provider list (Resend Audiences or Mailchimp)
 
-### Phase 9 Verification
+### Phase 9.0 Verification
 
 - [ ] Complete test purchase — confirm order confirmation email received within 2 minutes
 - [ ] Test password reset email — confirm link works and expires after 60 minutes

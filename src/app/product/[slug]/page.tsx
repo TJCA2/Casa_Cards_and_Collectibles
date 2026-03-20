@@ -2,11 +2,14 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import sanitizeHtml from "sanitize-html";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ImageGallery from "@/components/products/ImageGallery";
 import ProductCard from "@/components/products/ProductCard";
 import AddToCartButton from "@/components/products/AddToCartButton";
 import WishlistButton from "@/components/products/WishlistButton";
+import MakeOfferButton from "@/components/products/MakeOfferButton";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -72,10 +75,6 @@ async function getProduct(slug: string) {
     include: {
       images: { orderBy: { sortOrder: "asc" } },
       category: true,
-      reviews: {
-        include: { user: { select: { email: true } } },
-        orderBy: { createdAt: "desc" },
-      },
     },
   });
 }
@@ -115,7 +114,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
-  const product = await getProduct(slug);
+  const [product, session] = await Promise.all([getProduct(slug), getServerSession(authOptions)]);
 
   if (!product || !product.isActive) notFound();
 
@@ -224,14 +223,50 @@ export default async function ProductPage({ params }: Props) {
 
           {/* Product info */}
           <div className="flex flex-col gap-5">
-            {/* Condition badge */}
-            <span
-              className={`w-fit rounded-full px-3 py-0.5 text-xs font-semibold ${
-                CONDITION_STYLE[product.condition] ?? "bg-gray-200 text-gray-700"
-              }`}
-            >
-              {CONDITION_LABEL[product.condition] ?? product.condition}
-            </span>
+            {/* Admin edit shortcut */}
+            {session?.user?.role === "ADMIN" && (
+              <Link
+                href={`/admin/products/${product.id}/edit`}
+                className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition"
+              >
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+                Edit in Admin
+              </Link>
+            )}
+
+            {/* Grade / condition + sport badges */}
+            <div className="flex flex-wrap gap-2">
+              {product.grade ? (
+                <span className="w-fit rounded-full bg-yellow-100 px-3 py-0.5 text-xs font-semibold text-yellow-800">
+                  {product.grade}
+                </span>
+              ) : (
+                <span
+                  className={`w-fit rounded-full px-3 py-0.5 text-xs font-semibold ${
+                    CONDITION_STYLE[product.condition] ?? "bg-gray-200 text-gray-700"
+                  }`}
+                >
+                  {CONDITION_LABEL[product.condition] ?? product.condition}
+                </span>
+              )}
+              {product.sport && (
+                <span className="w-fit rounded-full bg-blue-100 px-3 py-0.5 text-xs font-semibold text-blue-700">
+                  {product.sport}
+                </span>
+              )}
+            </div>
 
             {/* Title */}
             <h1 className="text-2xl font-bold text-gray-900 leading-tight sm:text-3xl">
@@ -284,17 +319,54 @@ export default async function ProductPage({ params }: Props) {
               <WishlistButton productId={product.id} slug={product.slug ?? slug} />
             </div>
 
-            {/* eBay cross-link */}
-            {product.ebayItemId && (
-              <a
-                href={`https://www.ebay.com/itm/${product.ebayItemId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                Also available on eBay →
-              </a>
+            {/* Make an Offer — only shown when product is active, in stock, and has a price */}
+            {!outOfStock && (
+              <MakeOfferButton
+                productId={product.id}
+                productTitle={product.title}
+                price={parseFloat(product.price.toString())}
+                slug={product.slug ?? slug}
+                isLoggedIn={!!session?.user}
+              />
             )}
+
+            {/* Ask a Question */}
+            <Link
+              href={`/contact?productId=${product.id}&productName=${encodeURIComponent(product.title)}`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-colors sm:w-auto"
+            >
+              <svg
+                className="h-5 w-5 text-gray-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.75}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
+              </svg>
+              Ask a Question
+            </Link>
+
+            {/* eBay cross-link */}
+            {product.ebayItemId &&
+              (() => {
+                // Browse API returns "v1|396117382121|0" — extract the numeric listing ID
+                const numericId = product.ebayItemId.split("|")[1] ?? product.ebayItemId;
+                return (
+                  <a
+                    href={`https://www.ebay.com/itm/${numericId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    Also available on eBay →
+                  </a>
+                );
+              })()}
 
             {/* Description */}
             {cleanDescription ? (
@@ -317,62 +389,6 @@ export default async function ProductPage({ params }: Props) {
             ) : null}
           </div>
         </div>
-
-        {/* Reviews */}
-        <section className="mt-16 border-t border-gray-100 pt-10">
-          <h2 className="mb-6 text-xl font-bold text-gray-900">
-            Customer Reviews
-            {product.reviews.length > 0 && (
-              <span className="ml-2 text-sm font-normal text-gray-500">
-                ({product.reviews.length})
-              </span>
-            )}
-          </h2>
-
-          {product.reviews.length === 0 ? (
-            <p className="text-sm text-gray-400">No reviews yet. Check back after purchase.</p>
-          ) : (
-            <div className="space-y-6">
-              {product.reviews.map((review) => (
-                <div key={review.id} className="rounded-2xl border border-gray-100 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <svg
-                            key={i}
-                            className={`h-4 w-4 ${i < review.rating ? "text-yellow-400" : "text-gray-200"}`}
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                        ))}
-                      </div>
-                      {review.title && (
-                        <p className="mt-1 font-semibold text-gray-900">{review.title}</p>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-400">
-                      {new Date(review.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </div>
-                  {review.body && <p className="mt-2 text-sm text-gray-700">{review.body}</p>}
-                  {review.isVerified && (
-                    <p className="mt-2 text-xs font-medium text-green-600">✓ Verified Purchase</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="mt-4 text-xs text-gray-400">
-            Reviewing available for verified purchasers — coming in a future update.
-          </p>
-        </section>
 
         {/* Related products */}
         {related.length > 0 && (

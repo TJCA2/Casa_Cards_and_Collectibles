@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
@@ -127,10 +127,19 @@ interface DefaultAddress {
   zip: string;
 }
 
+interface OfferProductData {
+  id: string;
+  title: string;
+  slug: string | null;
+  price: number;
+  imageUrl: string | null;
+}
+
 interface Props {
   userEmail: string | null;
   isLoggedIn: boolean;
   defaultAddress?: DefaultAddress | null;
+  offerToken?: string | null;
 }
 
 // ── Step indicator ─────────────────────────────────────────────────────────────
@@ -254,8 +263,35 @@ function PaymentStep({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress }: Props) {
-  const { cart, itemCount, subtotal } = useCart();
+export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress, offerToken }: Props) {
+  const { cart, itemCount, subtotal: cartSubtotal } = useCart();
+
+  // ── Offer token mode ─────────────────────────────────────────────────────────
+  const [offerProduct, setOfferProduct] = useState<OfferProductData | null>(null);
+  const [offerPrice, setOfferPrice] = useState<number | null>(null);
+  const [offerError, setOfferError] = useState<string | null>(null);
+  const [offerLoading, setOfferLoading] = useState(!!offerToken);
+
+  useEffect(() => {
+    if (!offerToken) return;
+    fetch(`/api/offers/token/${offerToken}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) {
+          setOfferError(data.error);
+        } else {
+          setOfferProduct(data.product);
+          setOfferPrice(data.offerPrice);
+        }
+      })
+      .catch(() => setOfferError("Could not validate offer link. Please try again."))
+      .finally(() => setOfferLoading(false));
+  }, [offerToken]);
+
+  // In offer mode the "cart" is just the single offer item
+  const isOfferMode = !!offerToken && !!offerProduct && offerPrice !== null;
+  const subtotal = isOfferMode ? offerPrice! : cartSubtotal;
+  const effectiveItemCount = isOfferMode ? 1 : itemCount;
 
   // Step state
   const [step, setStep] = useState(1);
@@ -303,8 +339,48 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress }: 
   const discountAmt = discount?.amount ?? 0;
   const orderTotal = Math.max(0, subtotal + shippingCost - discountAmt);
 
+  // ── Offer token loading / error states ──────────────────────────────────────
+  if (offerToken && offerLoading) {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-24 text-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+        <p className="text-sm text-gray-500">Validating your offer link…</p>
+      </div>
+    );
+  }
+
+  if (offerToken && offerError) {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center gap-5 px-4 py-24 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+          <svg
+            className="h-7 w-7 text-red-600"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </div>
+        <p className="text-xl font-bold text-gray-900">Offer Link Invalid</p>
+        <p className="text-sm text-gray-500">{offerError}</p>
+        <Link
+          href="/shop"
+          className="rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700"
+        >
+          Browse Products
+        </Link>
+      </div>
+    );
+  }
+
   // ── Empty cart ───────────────────────────────────────────────────────────────
-  if (itemCount === 0) {
+  if (effectiveItemCount === 0) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-5 px-4 py-24 text-center">
         <svg
@@ -396,14 +472,19 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress }: 
     setCreatingIntent(true);
     setIntentError("");
     try {
+      const items = isOfferMode
+        ? [{ productId: offerProduct!.id, quantity: 1 }]
+        : cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity }));
+
       const res = await fetch("/api/checkout/create-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          items,
           shippingInfo: shipping,
           shippingMethod,
           ...(discount ? { discountCode: discount.code } : {}),
+          ...(isOfferMode ? { offerToken } : {}),
         }),
       });
       const data = (await res.json()) as {
@@ -430,6 +511,30 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress }: 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="mb-6 text-2xl font-bold text-gray-900">Checkout</h1>
+
+      {/* Offer price banner */}
+      {isOfferMode && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <svg
+            className="h-5 w-5 flex-shrink-0 text-green-600"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <p className="text-sm font-medium text-green-800">
+            Offer Price Applied: <span className="font-bold">${offerPrice!.toFixed(2)}</span> for{" "}
+            <span className="font-bold">{offerProduct!.title}</span>
+          </p>
+        </div>
+      )}
+
       <StepIndicator current={step} />
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -743,16 +848,27 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress }: 
             Order Summary
           </h2>
           <ul className="space-y-3">
-            {cart.items.map((item) => (
-              <li key={item.productId} className="flex items-start justify-between gap-3 text-sm">
+            {isOfferMode ? (
+              <li className="flex items-start justify-between gap-3 text-sm">
                 <span className="line-clamp-2 text-gray-700">
-                  {item.title} <span className="text-gray-400">× {item.quantity}</span>
+                  {offerProduct!.title} <span className="text-gray-400">× 1</span>
                 </span>
-                <span className="flex-shrink-0 font-medium text-gray-900">
-                  ${(item.price * item.quantity).toFixed(2)}
+                <span className="flex-shrink-0 font-medium text-green-700">
+                  ${offerPrice!.toFixed(2)}
                 </span>
               </li>
-            ))}
+            ) : (
+              cart.items.map((item) => (
+                <li key={item.productId} className="flex items-start justify-between gap-3 text-sm">
+                  <span className="line-clamp-2 text-gray-700">
+                    {item.title} <span className="text-gray-400">× {item.quantity}</span>
+                  </span>
+                  <span className="flex-shrink-0 font-medium text-gray-900">
+                    ${(item.price * item.quantity).toFixed(2)}
+                  </span>
+                </li>
+              ))
+            )}
           </ul>
 
           <div className="mt-4 space-y-1.5 border-t border-gray-100 pt-4 text-sm">
