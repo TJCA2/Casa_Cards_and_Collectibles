@@ -36,7 +36,7 @@ export default function ImageGallery({ images, title }: Props) {
   return (
     <div className="flex flex-col gap-3">
       {/* Main image */}
-      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-gray-100">
+      <div className="group relative aspect-square w-full overflow-hidden rounded-2xl bg-gray-100">
         <Image
           src={active!.url}
           alt={active!.altText ?? title}
@@ -45,6 +45,41 @@ export default function ImageGallery({ images, title }: Props) {
           className="object-contain"
           priority
         />
+
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={() => setActiveIndex((activeIndex - 1 + images.length) % images.length)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/20 text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/40"
+              aria-label="Previous image"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setActiveIndex((activeIndex + 1) % images.length)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/20 text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/40"
+              aria-label="Next image"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Thumbnails */}

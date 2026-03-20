@@ -16,12 +16,16 @@ const noopLimiter = {
   }),
 };
 
-function makeRatelimit(prefix: string, max: number) {
+function makeRatelimit(
+  prefix: string,
+  max: number,
+  window: Parameters<typeof Ratelimit.slidingWindow>[1] = "1 m",
+) {
   if (!url || !token) return noopLimiter;
   const redis = new Redis({ url, token });
   return new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(max, "1 m"),
+    limiter: Ratelimit.slidingWindow(max, window),
     analytics: true,
     prefix,
   });
@@ -32,3 +36,9 @@ export const authRatelimit = makeRatelimit("ratelimit:auth", 10);
 
 // 30 requests / minute — general API endpoints
 export const apiRatelimit = makeRatelimit("ratelimit:api", 30);
+
+// Contact form — 3 per hour per IP
+export const contactIpRatelimit = makeRatelimit("ratelimit:contact:ip", 3, "1 h");
+
+// Contact form — 10 per day per email address
+export const contactEmailRatelimit = makeRatelimit("ratelimit:contact:email", 10, "24 h");

@@ -5,8 +5,10 @@ import CheckoutForm from "./CheckoutForm";
 
 export const metadata = { title: "Checkout" };
 
-export default async function CheckoutPage() {
-  const session = await getServerSession(authOptions);
+type Props = { searchParams: Promise<{ offerToken?: string }> };
+
+export default async function CheckoutPage({ searchParams }: Props) {
+  const [session, sp] = await Promise.all([getServerSession(authOptions), searchParams]);
 
   const defaultAddress = session
     ? await prisma.address.findFirst({
@@ -20,6 +22,7 @@ export default async function CheckoutPage() {
       userEmail={session?.user?.email ?? null}
       isLoggedIn={!!session}
       defaultAddress={defaultAddress}
+      offerToken={sp.offerToken ?? null}
     />
   );
 }

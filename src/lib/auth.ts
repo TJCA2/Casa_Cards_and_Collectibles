@@ -74,6 +74,11 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        if (user.banned) {
+          await recordLoginAttempt(email, ip, false);
+          throw new Error("AccountSuspended");
+        }
+
         // ── Verify password ───────────────────────────────────────────────────
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) {

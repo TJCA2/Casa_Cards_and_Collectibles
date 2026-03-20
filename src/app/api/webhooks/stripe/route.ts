@@ -54,10 +54,12 @@ export async function POST(req: NextRequest) {
     await prisma.$transaction(async (tx) => {
       // Decrement stock for each item
       for (const item of order.items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stockQuantity: { decrement: item.quantity } },
-        });
+        if (item.productId) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stockQuantity: { decrement: item.quantity } },
+          });
+        }
       }
 
       // Mark order as PAID
@@ -65,6 +67,14 @@ export async function POST(req: NextRequest) {
         where: { id: order.id },
         data: { status: "PAID" },
       });
+
+      // If this order used an offer token, mark the offer as PURCHASED
+      if (order.offerToken) {
+        await tx.offer.updateMany({
+          where: { purchaseToken: order.offerToken, status: "ACCEPTED" },
+          data: { status: "PURCHASED" },
+        });
+      }
     });
 
     // Send confirmation email (outside transaction — non-fatal if it fails)
@@ -75,7 +85,7 @@ export async function POST(req: NextRequest) {
           customerEmail: order.customerEmail,
           customerName: order.shippingAddress.name,
           items: order.items.map((i) => ({
-            title: i.product.title,
+            title: i.product?.title ?? i.productTitle ?? "Item",
             quantity: i.quantity,
             unitPrice: parseFloat(i.unitPrice.toString()),
           })),

@@ -25,6 +25,7 @@ const schema = z.object({
   }),
   shippingMethod: z.enum(["first_class", "priority"]),
   discountCode: z.string().max(50).optional(),
+  offerToken: z.string().max(200).optional(),
 });
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -65,9 +66,53 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { items, shippingInfo, shippingMethod, discountCode } = parsed.data;
+  const { items, shippingInfo, shippingMethod, discountCode, offerToken } = parsed.data;
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id ?? null;
+
+  // ── 0. Validate offer token server-side (if present) ─────────────────────────
+  let offerRecord: {
+    id: string;
+    offerPrice: import("@prisma/client").Prisma.Decimal;
+    productId: string;
+  } | null = null;
+
+  if (offerToken) {
+    if (items.length !== 1) {
+      return NextResponse.json(
+        { error: "Offer checkout must contain exactly one item" },
+        { status: 400 },
+      );
+    }
+    const offer = await prisma.offer.findUnique({
+      where: { purchaseToken: offerToken },
+      select: {
+        id: true,
+        status: true,
+        offerPrice: true,
+        productId: true,
+        tokenExpiresAt: true,
+        product: { select: { isActive: true, stockQuantity: true } },
+      },
+    });
+
+    if (!offer || offer.status !== "ACCEPTED") {
+      return NextResponse.json({ error: "Offer link is no longer valid" }, { status: 400 });
+    }
+    if (!offer.tokenExpiresAt || offer.tokenExpiresAt < new Date()) {
+      return NextResponse.json({ error: "Offer link has expired" }, { status: 400 });
+    }
+    if (!offer.product.isActive || offer.product.stockQuantity <= 0) {
+      return NextResponse.json({ error: "Product is no longer available" }, { status: 400 });
+    }
+    if (offer.productId !== items[0]!.productId) {
+      return NextResponse.json(
+        { error: "Offer does not match the provided product" },
+        { status: 400 },
+      );
+    }
+    offerRecord = offer;
+  }
 
   // ── 1. Fetch products and validate prices/stock ──────────────────────────────
   const productIds = items.map((i) => i.productId);
@@ -93,7 +138,11 @@ export async function POST(req: NextRequest) {
 
   // ── 2. Calculate totals server-side ─────────────────────────────────────────
   const subtotal = items.reduce((sum, item) => {
-    const price = parseFloat(productMap.get(item.productId)!.price.toString());
+    // Use offer price for the offer item — never trust client price
+    const price =
+      offerRecord && item.productId === offerRecord.productId
+        ? parseFloat(offerRecord.offerPrice.toString())
+        : parseFloat(productMap.get(item.productId)!.price.toString());
     return sum + price * item.quantity;
   }, 0);
 
@@ -174,17 +223,25 @@ export async function POST(req: NextRequest) {
         paymentIntentId: paymentIntent.id,
         shippingAddressId: address.id,
         billingAddressId: address.id,
+        ...(discountCodeId ? { discountCode: discountCode!.toUpperCase(), discountAmount } : {}),
+        ...(offerToken ? { offerToken } : {}),
       },
     });
 
     await tx.orderItem.createMany({
-      data: items.map((item) => ({
-        orderId: order.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: parseFloat(productMap.get(item.productId)!.price.toString()),
-        totalPrice: parseFloat(productMap.get(item.productId)!.price.toString()) * item.quantity,
-      })),
+      data: items.map((item) => {
+        const unitPrice =
+          offerRecord && item.productId === offerRecord.productId
+            ? parseFloat(offerRecord.offerPrice.toString())
+            : parseFloat(productMap.get(item.productId)!.price.toString());
+        return {
+          orderId: order.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        };
+      }),
     });
 
     // Increment discount code usage

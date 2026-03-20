@@ -11,12 +11,14 @@ export const metadata: Metadata = {
   description: "Browse all sports cards and collectibles.",
 };
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 20;
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
   { value: "price-asc", label: "Price: Low → High" },
   { value: "price-desc", label: "Price: High → Low" },
+  { value: "grade-asc", label: "Grade: Low → High" },
+  { value: "grade-desc", label: "Grade: High → Low" },
 ];
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
@@ -35,6 +37,8 @@ async function getShopData(params: Awaited<SearchParams>) {
   const minPrice = str(params.minPrice);
   const maxPrice = str(params.maxPrice);
   const inStock = str(params.inStock) === "true";
+  const sport = str(params.sport);
+  const grade = str(params.grade);
 
   const priceFilter: Prisma.DecimalFilter = {};
   if (minPrice) priceFilter.gte = new Prisma.Decimal(minPrice);
@@ -47,6 +51,8 @@ async function getShopData(params: Awaited<SearchParams>) {
     ...(condition && { condition: condition as Condition }),
     ...(hasPriceFilter && { price: priceFilter }),
     ...(inStock && { stockQuantity: { gt: 0 } }),
+    ...(sport && { sport }),
+    ...(grade && { grade }),
   };
 
   const orderBy: Prisma.ProductOrderByWithRelationInput =
@@ -54,9 +60,13 @@ async function getShopData(params: Awaited<SearchParams>) {
       ? { price: "asc" }
       : sort === "price-desc"
         ? { price: "desc" }
-        : { createdAt: "desc" };
+        : sort === "grade-asc"
+          ? { grade: "asc" }
+          : sort === "grade-desc"
+            ? { grade: "desc" }
+            : { createdAt: "desc" };
 
-  const [products, total, categories] = await Promise.all([
+  const [products, total, sportsRaw, gradesRaw] = await Promise.all([
     prisma.product.findMany({
       where,
       orderBy,
@@ -65,17 +75,44 @@ async function getShopData(params: Awaited<SearchParams>) {
       include: { images: { where: { sortOrder: 0 }, take: 1 } },
     }),
     prisma.product.count({ where }),
-    prisma.category.findMany({ where: { parentId: null }, orderBy: { name: "asc" } }),
+    prisma.product.findMany({
+      where: { isActive: true, sport: { not: null } },
+      select: { sport: true },
+      distinct: ["sport"],
+      orderBy: { sport: "asc" },
+    }),
+    prisma.product.findMany({
+      where: { isActive: true, grade: { not: null } },
+      select: { grade: true },
+      distinct: ["grade"],
+      orderBy: { grade: "asc" },
+    }),
   ]);
 
-  return { products, total, categories, page, sort, totalPages: Math.ceil(total / PAGE_SIZE) };
+  const sports = sportsRaw.map((p) => p.sport as string);
+  const grades = gradesRaw
+    .map((p) => p.grade as string)
+    .sort((a, b) => parseFloat(b) - parseFloat(a));
+
+  return {
+    products,
+    total,
+    sports,
+    grades,
+    page,
+    sort,
+    sport,
+    grade,
+    totalPages: Math.ceil(total / PAGE_SIZE),
+  };
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default async function ShopPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const { products, total, categories, page, sort, totalPages } = await getShopData(params);
+  const { products, total, sports, grades, page, sort, sport, grade, totalPages } =
+    await getShopData(params);
 
   const buildPageUrl = (p: number) => {
     const sp = new URLSearchParams(
@@ -107,7 +144,7 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
       <div className="flex flex-col gap-8 lg:flex-row">
         {/* Filter sidebar */}
         <Suspense>
-          <FilterSidebar categories={categories} />
+          <FilterSidebar sports={sports} activeSport={sport} grades={grades} activeGrade={grade} />
         </Suspense>
 
         {/* Product grid */}

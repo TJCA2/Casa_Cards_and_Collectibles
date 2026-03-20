@@ -5,7 +5,7 @@ import { authRatelimit, apiRatelimit } from "@/lib/ratelimit";
 // Rate-limit only real auth actions — not the session read endpoint (polled by SessionProvider on every page load)
 const AUTH_PATTERN = /^\/api\/auth\/(?!session$)/;
 const API_PATTERN =
-  /^\/api\/(checkout|contact|ebay-sync|ebay|admin|newsletter|products|cart|orders|account)(\/|$)/;
+  /^\/api\/(checkout|contact|ebay-sync|ebay|admin|newsletter|products|cart|orders|account|offers)(\/|$)/;
 const ADMIN_PAGE_PATTERN = /^\/admin(\/|$)/;
 const ADMIN_API_PATTERN = /^\/api\/admin\//;
 
@@ -78,5 +78,6 @@ export const config = {
     "/api/orders/:path*",
     "/api/account/:path*",
     "/api/account/verify-email-change",
+    "/api/offers/:path*",
   ],
 };

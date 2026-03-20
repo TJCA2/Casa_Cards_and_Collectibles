@@ -10,11 +10,15 @@ const SHOP_LINKS = [
   { href: "/category/football-cards", label: "Football Cards" },
 ];
 
+const SUPPORT_LINKS = [
+  { href: "/contact", label: "Contact Us" },
+  { href: "/returns", label: "Returns & Refunds" },
+  { href: "/shipping", label: "Shipping Policy" },
+];
+
 const LEGAL_LINKS = [
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms & Conditions" },
-  { href: "/returns", label: "Returns & Refunds" },
-  { href: "/shipping", label: "Shipping Policy" },
 ];
 
 export default function Footer() {
@@ -63,9 +67,23 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Legal links */}
+          {/* Support links */}
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white">Legal</p>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white">
+              Support
+            </p>
+            <ul className="space-y-2">
+              {SUPPORT_LINKS.map((l) => (
+                <li key={l.href}>
+                  <Link href={l.href} className="text-sm hover:text-white">
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <p className="mb-3 mt-5 text-xs font-semibold uppercase tracking-widest text-white">
+              Legal
+            </p>
             <ul className="space-y-2">
               {LEGAL_LINKS.map((l) => (
                 <li key={l.href}>

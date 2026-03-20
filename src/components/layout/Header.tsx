@@ -6,8 +6,6 @@ import MobileNav from "./MobileNav";
 import { useCart } from "@/context/CartContext";
 import { useSession } from "next-auth/react";
 
-const NAV_LINKS = [{ href: "/shop", label: "Shop" }];
-
 export default function Header() {
   const { itemCount, openCart } = useCart();
   const { data: session, status } = useSession();
@@ -38,19 +36,6 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Center: desktop nav */}
-        <nav className="hidden items-center gap-6 md:flex">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium text-white/80 hover:text-white"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-
         {/* Right: search + account + cart */}
         <div className="flex items-center gap-4">
           {/* Search */}
@@ -74,8 +59,8 @@ export default function Header() {
           {status !== "loading" &&
             (session ? (
               <Link
-                href="/account"
-                aria-label="My account"
+                href={session.user?.role === "ADMIN" ? "/admin" : "/account"}
+                aria-label={session.user?.role === "ADMIN" ? "Admin panel" : "My account"}
                 className="hidden text-white/70 hover:text-white md:block"
               >
                 <svg
@@ -100,6 +85,23 @@ export default function Header() {
                 Sign in
               </Link>
             ))}
+
+          {/* Contact */}
+          <Link href="/contact" aria-label="Contact us" className="text-white/70 hover:text-white">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+          </Link>
 
           {/* Cart */}
           <button

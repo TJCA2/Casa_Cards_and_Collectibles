@@ -3,24 +3,19 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 
-const CONDITIONS = [
-  { value: "NEW", label: "New" },
-  { value: "LIKE_NEW", label: "Like New" },
-  { value: "USED", label: "Used" },
-  { value: "REFURBISHED", label: "Refurbished" },
-];
-
-interface Category {
-  id: string;
-  slug: string;
-  name: string;
-}
-
 interface FilterSidebarProps {
-  categories: Category[];
+  sports: string[];
+  activeSport: string;
+  grades: string[];
+  activeGrade: string;
 }
 
-export default function FilterSidebar({ categories }: FilterSidebarProps) {
+export default function FilterSidebar({
+  sports,
+  activeSport,
+  grades,
+  activeGrade,
+}: FilterSidebarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -39,20 +34,10 @@ export default function FilterSidebar({ categories }: FilterSidebarProps) {
     [router, searchParams],
   );
 
-  const toggleCondition = useCallback(
-    (value: string) => {
-      const current = searchParams.get("condition");
-      setParam("condition", current === value ? null : value);
-    },
-    [searchParams, setParam],
-  );
-
-  const activeCategory = searchParams.get("category");
-  const activeCondition = searchParams.get("condition");
   const inStock = searchParams.get("inStock") === "true";
   const minPrice = searchParams.get("minPrice") ?? "";
   const maxPrice = searchParams.get("maxPrice") ?? "";
-  const hasFilters = activeCategory || activeCondition || inStock || minPrice || maxPrice;
+  const hasFilters = inStock || minPrice || maxPrice || activeSport || activeGrade;
 
   return (
     <aside className="w-full space-y-6 lg:w-56 lg:flex-shrink-0">
@@ -69,52 +54,59 @@ export default function FilterSidebar({ categories }: FilterSidebarProps) {
         )}
       </div>
 
-      {/* Category */}
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Category</p>
-        <ul className="space-y-1">
-          <li>
-            <button
-              onClick={() => setParam("category", null)}
-              className={`text-sm ${!activeCategory ? "font-semibold text-red-600" : "text-gray-700 hover:text-gray-900"}`}
-            >
-              All Categories
-            </button>
-          </li>
-          {categories.map((cat) => (
-            <li key={cat.id}>
+      {/* Sport */}
+      {sports.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Sport</p>
+          <ul className="space-y-1">
+            <li>
               <button
-                onClick={() => setParam("category", cat.slug)}
-                className={`text-sm ${activeCategory === cat.slug ? "font-semibold text-red-600" : "text-gray-700 hover:text-gray-900"}`}
+                onClick={() => setParam("sport", null)}
+                className={`text-sm ${!activeSport ? "font-semibold text-red-600" : "text-gray-700 hover:text-gray-900"}`}
               >
-                {cat.name}
+                All Sports
               </button>
             </li>
-          ))}
-        </ul>
-      </div>
+            {sports.map((s) => (
+              <li key={s}>
+                <button
+                  onClick={() => setParam("sport", s)}
+                  className={`text-sm ${activeSport === s ? "font-semibold text-red-600" : "text-gray-700 hover:text-gray-900"}`}
+                >
+                  {s}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-      {/* Condition */}
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Condition
-        </p>
-        <ul className="space-y-1.5">
-          {CONDITIONS.map((c) => (
-            <li key={c.value}>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={activeCondition === c.value}
-                  onChange={() => toggleCondition(c.value)}
-                  className="h-4 w-4 rounded border-gray-300 accent-red-600"
-                />
-                <span className="text-sm text-gray-700">{c.label}</span>
-              </label>
+      {/* Grade */}
+      {grades.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Grade</p>
+          <ul className="space-y-1">
+            <li>
+              <button
+                onClick={() => setParam("grade", null)}
+                className={`text-sm ${!activeGrade ? "font-semibold text-red-600" : "text-gray-700 hover:text-gray-900"}`}
+              >
+                All Grades
+              </button>
             </li>
-          ))}
-        </ul>
-      </div>
+            {grades.map((g) => (
+              <li key={g}>
+                <button
+                  onClick={() => setParam("grade", g)}
+                  className={`text-sm ${activeGrade === g ? "font-semibold text-red-600" : "text-gray-700 hover:text-gray-900"}`}
+                >
+                  {g}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Price range */}
       <div>

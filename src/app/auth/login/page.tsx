@@ -23,6 +23,8 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [captchaRequired, setCaptchaRequired] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [captchaError, setCaptchaError] = useState(false);
+  const [captchaKey, setCaptchaKey] = useState(0);
 
   const turnstileRef = useRef<TurnstileInstance>(null);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? TURNSTILE_TEST_SITEKEY;
@@ -159,13 +161,38 @@ function LoginForm() {
             <p className="mb-2 text-xs text-gray-500">
               Please complete the security check to continue.
             </p>
-            <Turnstile
-              ref={turnstileRef}
-              siteKey={siteKey}
-              onSuccess={(token) => setCaptchaToken(token)}
-              onExpire={() => setCaptchaToken("")}
-              onError={() => setCaptchaToken("")}
-            />
+            {captchaError ? (
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                The security check failed to load.{" "}
+                <button
+                  type="button"
+                  className="font-medium underline hover:no-underline"
+                  onClick={() => {
+                    setCaptchaError(false);
+                    setCaptchaToken("");
+                    setCaptchaKey((k) => k + 1);
+                  }}
+                >
+                  Click here to retry.
+                </button>
+              </div>
+            ) : (
+              <Turnstile
+                key={captchaKey}
+                ref={turnstileRef}
+                siteKey={siteKey}
+                options={{ appearance: "always" }}
+                onSuccess={(token) => {
+                  setCaptchaToken(token);
+                  setCaptchaError(false);
+                }}
+                onExpire={() => setCaptchaToken("")}
+                onError={() => {
+                  setCaptchaToken("");
+                  setCaptchaError(true);
+                }}
+              />
+            )}
           </div>
         )}
 
