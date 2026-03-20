@@ -73,15 +73,17 @@ export default async function OrderDetailPage({ params }: { params: Params }) {
   const currentStep = STATUS_ORDER[order.status];
   const isTerminal = order.status === "CANCELLED" || order.status === "REFUNDED";
 
-  const reorderItems = order.items.map((item) => ({
-    productId: item.product.id,
-    slug: item.product.slug ?? "",
-    title: item.product.title,
-    price: Number(item.product.price),
-    imageUrl: item.product.images[0]?.url ?? null,
-    condition: item.product.condition,
-    stockQuantity: item.product.stockQuantity,
-  }));
+  const reorderItems = order.items
+    .filter((item) => item.product != null)
+    .map((item) => ({
+      productId: item.product!.id,
+      slug: item.product!.slug ?? "",
+      title: item.product!.title,
+      price: Number(item.product!.price),
+      imageUrl: item.product!.images[0]?.url ?? null,
+      condition: item.product!.condition,
+      stockQuantity: item.product!.stockQuantity,
+    }));
 
   return (
     <div className="space-y-6">
