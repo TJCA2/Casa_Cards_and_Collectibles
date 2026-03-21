@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
+  console.log("[ebay/callback] Full URL:", request.url);
+  console.log("[ebay/callback] Params:", Object.fromEntries(searchParams.entries()));
   const code = searchParams.get("code");
   const error = searchParams.get("error");
 
