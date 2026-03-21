@@ -34,6 +34,22 @@ export default function Header() {
               Casa Cards & Collectibles
             </span>
           </Link>
+
+          {/* eBay store link — desktop only */}
+          <a
+            href="https://www.ebay.com/usr/casa_cards_and_collectibles"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden items-center gap-1 rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-white/70 transition hover:border-white/40 hover:text-white md:flex"
+          >
+            <span className="font-extrabold tracking-tight leading-none" aria-hidden="true">
+              <span className="text-[#e53238]">e</span>
+              <span className="text-[#0064d2]">B</span>
+              <span className="text-[#f5af02]">a</span>
+              <span className="text-[#86b817]">y</span>
+            </span>
+            <span>↗</span>
+          </a>
         </div>
 
         {/* Right: search + account + cart */}

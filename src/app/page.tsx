@@ -2,7 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ProductCard from "@/components/products/ProductCard";
 import FeaturedCarousel from "@/components/products/FeaturedCarousel";
-import NewsletterBar from "@/components/homepage/NewsletterBar";
+import NewsletterPopup from "@/components/homepage/NewsletterPopup";
+import EbayReviewsCarousel from "@/components/reviews/EbayReviewsCarousel";
 
 // ── Data fetching ──────────────────────────────────────────────────────────────
 
@@ -15,16 +16,6 @@ async function getFeaturedProducts() {
   });
 }
 
-async function getSports(): Promise<string[]> {
-  const rows = await prisma.product.findMany({
-    where: { isActive: true, sport: { not: null } },
-    select: { sport: true },
-    distinct: ["sport"],
-    orderBy: { sport: "asc" },
-  });
-  return rows.map((r) => r.sport as string);
-}
-
 async function getNewestProducts() {
   return prisma.product.findMany({
     where: { isActive: true },
@@ -34,33 +25,85 @@ async function getNewestProducts() {
   });
 }
 
-// ── Sport icons ────────────────────────────────────────────────────────────────
+function derivePositivePct(stats: {
+  positiveFeedbackPercent: { toNumber?: () => number } | number | string;
+  positiveFeedbackCount: number;
+  negativeFeedbackCount: number;
+  neutralFeedbackCount: number;
+}): number {
+  const stored =
+    typeof stats.positiveFeedbackPercent === "object" &&
+    stats.positiveFeedbackPercent !== null &&
+    "toNumber" in stats.positiveFeedbackPercent
+      ? stats.positiveFeedbackPercent.toNumber()
+      : Number(stats.positiveFeedbackPercent);
+  if (stored > 0) return stored;
+  const denom =
+    stats.positiveFeedbackCount + stats.negativeFeedbackCount + stats.neutralFeedbackCount;
+  return denom > 0 ? Math.round((stats.positiveFeedbackCount / denom) * 1000) / 10 : 0;
+}
 
-const SPORT_ICONS: [string, string][] = [
-  ["baseball", "⚾"],
-  ["basketball", "🏀"],
-  ["football", "🏈"],
-  ["soccer", "⚽"],
-  ["hockey", "🏒"],
-  ["golf", "⛳"],
-  ["tennis", "🎾"],
-  ["wrestling", "🤼"],
-  ["boxing", "🥊"],
-  ["multi", "🏆"],
-];
+// eBay auto-generates this text when buyers don't write a custom comment
+const GENERIC_REVIEW = "order delivered on time with no issues";
 
-function sportIcon(sport: string): string {
-  const lower = sport.toLowerCase();
-  return SPORT_ICONS.find(([key]) => lower.includes(key))?.[1] ?? "🃏";
+async function getEbayReviews() {
+  const [reviews, stats] = await Promise.all([
+    prisma.ebayReview.findMany({
+      where: {
+        rating: 1,
+        comment: { not: null },
+        // Filter out eBay's auto-generated placeholder text
+        NOT: { comment: { contains: GENERIC_REVIEW, mode: "insensitive" } },
+      },
+      orderBy: { transactionDate: "desc" },
+      // Fetch extra so short/low-quality comments can be trimmed in JS
+      take: 60,
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        reviewerName: true,
+        itemTitle: true,
+        transactionDate: true,
+      },
+    }),
+    prisma.ebaySellerStats.findUnique({
+      where: { id: "singleton" },
+      select: {
+        positiveFeedbackPercent: true,
+        totalFeedbackCount: true,
+        positiveFeedbackCount: true,
+        negativeFeedbackCount: true,
+        neutralFeedbackCount: true,
+      },
+    }),
+  ]);
+
+  // Drop any remaining low-quality comments (very short = auto-generated variants)
+  const quality = reviews.filter((r) => (r.comment?.trim().length ?? 0) >= 20).slice(0, 30);
+
+  return {
+    reviews: quality.map((r) => ({
+      ...r,
+      transactionDate: r.transactionDate?.toISOString() ?? null,
+    })),
+    sellerStats: stats
+      ? {
+          positivePct: derivePositivePct(stats),
+          totalCount: stats.totalFeedbackCount,
+          positiveCount: stats.positiveFeedbackCount,
+        }
+      : null,
+  };
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default async function HomePage() {
-  const [featured, sports, products] = await Promise.all([
+  const [featured, products, { reviews, sellerStats }] = await Promise.all([
     getFeaturedProducts(),
-    getSports(),
     getNewestProducts(),
+    getEbayReviews(),
   ]);
 
   return (
@@ -124,33 +167,62 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── Shop by Sport ── */}
-      {sports.length > 0 && (
+      {/* ── eBay Reviews ── */}
+      {reviews.length > 0 && (
         <section className="bg-gray-50 py-14">
           <div className="mx-auto max-w-7xl px-4">
-            <h2 className="mb-8 text-center text-2xl font-bold text-gray-900">Shop by Sport</h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {sports.map((sport) => (
-                <Link
-                  key={sport}
-                  href={`/shop?sport=${encodeURIComponent(sport)}`}
-                  className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-red-200 hover:shadow-md"
+            <div className="mb-8 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">What Our Customers Say</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Real feedback from verified eBay buyers
+                </p>
+              </div>
+              <Link
+                href="/reviews"
+                className="text-sm font-medium text-red-600 hover:text-red-700 whitespace-nowrap"
+              >
+                See all reviews →
+              </Link>
+            </div>
+
+            <EbayReviewsCarousel reviews={reviews} sellerStats={sellerStats} />
+
+            {/* Also Find Us on eBay banner */}
+            <div className="mt-10 flex flex-col items-center gap-3 rounded-2xl border border-gray-200 bg-white px-6 py-6 text-center shadow-sm sm:flex-row sm:justify-between sm:text-left">
+              <div>
+                <p className="font-semibold text-gray-900">Also find us on eBay</p>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  Thousands of cards listed — shop our full eBay store
+                </p>
+              </div>
+              <a
+                href="https://www.ebay.com/usr/casa_cards_and_collectibles"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-5 py-2.5 text-sm font-semibold text-gray-800 transition hover:bg-gray-100"
+              >
+                <span className="font-extrabold tracking-tight" aria-hidden="true">
+                  <span className="text-[#e53238]">e</span>
+                  <span className="text-[#0064d2]">B</span>
+                  <span className="text-[#f5af02]">a</span>
+                  <span className="text-[#86b817]">y</span>
+                </span>
+                Shop on eBay
+                <svg
+                  className="h-3.5 w-3.5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
                 >
-                  <span className="text-3xl" aria-hidden="true">
-                    {sportIcon(sport)}
-                  </span>
-                  <p className="font-semibold text-gray-900 group-hover:text-red-600">{sport}</p>
-                  <svg
-                    className="ml-auto h-4 w-4 flex-shrink-0 text-gray-300 transition group-hover:text-red-500"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              ))}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </a>
             </div>
           </div>
         </section>
@@ -260,8 +332,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── Newsletter ── */}
-      <NewsletterBar />
+      {/* ── Newsletter popup (10s delay) ── */}
+      <NewsletterPopup />
     </>
   );
 }

@@ -31,8 +31,8 @@ export default function NewsletterBar() {
         </p>
 
         {status === "success" ? (
-          <p className="mt-6 text-sm font-medium text-red-400">
-            You&apos;re subscribed! We&apos;ll be in touch soon.
+          <p className="mt-6 text-sm font-medium text-green-400">
+            Check your inbox — we sent you a confirmation link!
           </p>
         ) : (
           <form

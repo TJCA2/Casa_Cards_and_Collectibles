@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: "/category/baseball-cards", label: "Baseball Cards" },
   { href: "/category/basketball-cards", label: "Basketball Cards" },
   { href: "/category/football-cards", label: "Football Cards" },
+  { href: "/reviews", label: "Customer Reviews" },
 ];
 
 export default function MobileNav() {

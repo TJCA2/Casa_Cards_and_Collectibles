@@ -561,6 +561,30 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress, of
                       isLoggedIn ? "bg-gray-50 text-gray-500" : "border-gray-200"
                     } ${errors.email ? "border-red-400" : ""}`}
                     {...field("email")}
+                    onBlur={(e) => {
+                      const email = e.target.value.trim();
+                      if (
+                        !email ||
+                        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+                        cart.items.length === 0
+                      )
+                        return;
+                      fetch("/api/cart/abandon", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          email,
+                          items: cart.items.map((i) => ({
+                            productId: i.productId,
+                            title: i.title,
+                            quantity: i.quantity,
+                            price: i.price,
+                            imageUrl: i.imageUrl,
+                          })),
+                          subtotal: cartSubtotal,
+                        }),
+                      }).catch(() => {});
+                    }}
                   />
                   {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
                 </div>

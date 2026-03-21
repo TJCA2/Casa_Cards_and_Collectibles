@@ -110,15 +110,6 @@ export async function fetchEbayFeedback(): Promise<{
     `,
     );
 
-    if (page === 1) {
-      const detailIdx = xml.indexOf("FeedbackDetail");
-      console.log("[ebay/reviews] XML length:", xml.length, "| FeedbackDetail index:", detailIdx);
-      console.log(
-        "[ebay/reviews] XML around FeedbackDetail:",
-        xml.slice(Math.max(0, detailIdx - 50), detailIdx + 500),
-      );
-    }
-
     // Parse stats from first page
     if (page === 1) {
       positivePct = parseFloat(extractText(xml, "PositiveFeedbackPercent") || "0");

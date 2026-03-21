@@ -50,7 +50,13 @@
       "Bash(grep -v '^$')",
       "Read(//tmp/**)",
       "Bash(mkdir -p \"src/app/api/admin/messages/[id]/status\")",
-      "Bash(mkdir -p \"src/app/admin/messages/[id]\")"
+      "Bash(mkdir -p \"src/app/admin/messages/[id]\")",
+      "Bash(. .env.local)",
+      "Bash(bash -c 'set -a; source .env.local; set +a; npx prisma db push')",
+      "Bash(grep -v '^#\\\\|^$\\\\|^//' /Users/tj/Casa_Cards_and_Collectibles/.env.local)",
+      "Bash(DATABASE_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" DIRECT_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:5432/postgres\" npx prisma db push)",
+      "Bash(DATABASE_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" DIRECT_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:5432/postgres\" npx prisma db push --accept-data-loss)",
+      "Bash(DATABASE_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" DIRECT_URL=\"postgresql://postgres.ioaiuuqebvcqvytypaod:PittsburghMarino%2313@aws-1-us-east-2.pooler.supabase.com:5432/postgres\" npx prisma generate)"
     ],
     "additionalDirectories": [
       "/Users/tj/Casa_Cards_and_Collectibles/images",
