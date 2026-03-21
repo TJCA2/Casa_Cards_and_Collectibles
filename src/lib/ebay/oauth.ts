@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 const EBAY_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token";
-const FEEDBACK_SCOPE = "https://api.ebay.com/oauth/api_scope offline_access";
+const FEEDBACK_SCOPE = "https://api.ebay.com/oauth/api_scope";
 
 function getCredentials(): string {
   const clientId = process.env.EBAY_CLIENT_ID!;
