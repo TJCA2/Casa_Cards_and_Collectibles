@@ -10,14 +10,12 @@ function getCredentials(): string {
 }
 
 export function getEbayAuthUrl(ruName: string): string {
-  const params = new URLSearchParams({
-    client_id: process.env.EBAY_CLIENT_ID!,
-    redirect_uri: ruName,
-    response_type: "code",
-    scope: FEEDBACK_SCOPE,
-    prompt: "login",
-  });
-  return `https://auth.ebay.com/oauth2/authorize?${params}`;
+  // Build manually to avoid URLSearchParams double-encoding the scope spaces
+  const base = "https://auth.ebay.com/oauth2/authorize";
+  const scope = encodeURIComponent(FEEDBACK_SCOPE);
+  const clientId = encodeURIComponent(process.env.EBAY_CLIENT_ID!);
+  const redirectUri = encodeURIComponent(ruName);
+  return `${base}?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&prompt=login`;
 }
 
 export async function exchangeCodeForTokens(code: string, ruName: string) {
