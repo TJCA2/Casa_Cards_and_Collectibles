@@ -109,6 +109,8 @@ export async function fetchEbayFeedback(): Promise<{
     `,
     );
 
+    if (page === 1) console.log("[ebay/reviews] Raw XML (first 2000 chars):", xml.slice(0, 2000));
+
     // Parse stats from first page
     if (page === 1) {
       positivePct = parseFloat(extractText(xml, "PositiveFeedbackPercent") || "0");
