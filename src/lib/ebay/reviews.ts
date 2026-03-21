@@ -101,6 +101,7 @@ export async function fetchEbayFeedback(): Promise<{
       "GetFeedback",
       accessToken,
       `
+      <DetailLevel>ReturnAll</DetailLevel>
       <FeedbackType>FeedbackReceivedAsSeller</FeedbackType>
       <Pagination>
         <EntriesPerPage>${pageSize}</EntriesPerPage>
