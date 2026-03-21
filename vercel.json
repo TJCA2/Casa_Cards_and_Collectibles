@@ -11,6 +11,14 @@
     {
       "path": "/api/cron/ebay-reviews",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/review-request",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/abandoned-cart",
+      "schedule": "0 * * * *"
     }
   ]
 }

@@ -351,20 +351,44 @@ export default async function ProductPage({ params }: Props) {
               Ask a Question
             </Link>
 
-            {/* eBay cross-link */}
+            {/* eBay cross-link pill */}
             {product.ebayItemId &&
               (() => {
                 // Browse API returns "v1|396117382121|0" — extract the numeric listing ID
-                const numericId = product.ebayItemId.split("|")[1] ?? product.ebayItemId;
+                const numericId = product.ebayItemId!.split("|")[1] ?? product.ebayItemId!;
                 return (
-                  <a
-                    href={`https://www.ebay.com/itm/${numericId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    Also available on eBay →
-                  </a>
+                  <div className="inline-block w-fit">
+                    <a
+                      href={`https://www.ebay.com/itm/${numericId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-white hover:shadow"
+                    >
+                      <span
+                        className="font-extrabold tracking-tight leading-none"
+                        aria-hidden="true"
+                      >
+                        <span className="text-[#e53238]">e</span>
+                        <span className="text-[#0064d2]">B</span>
+                        <span className="text-[#f5af02]">a</span>
+                        <span className="text-[#86b817]">y</span>
+                      </span>
+                      Also available on eBay
+                      <svg
+                        className="h-3.5 w-3.5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    </a>
+                  </div>
                 );
               })()}
 
