@@ -12,5 +12,7 @@ export async function GET() {
   const ruName = process.env.EBAY_RUNAME;
   if (!ruName) throw new Error("Missing EBAY_RUNAME environment variable.");
 
-  redirect(getEbayAuthUrl(ruName));
+  const url = getEbayAuthUrl(ruName);
+  console.log("[ebay/authorize] Redirecting to:", url);
+  redirect(url);
 }
