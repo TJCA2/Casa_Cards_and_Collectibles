@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 const EBAY_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token";
-const FEEDBACK_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.feedback offline_access";
+const FEEDBACK_SCOPE = "https://api.ebay.com/oauth/api_scope offline_access";
 
 function getCredentials(): string {
   const clientId = process.env.EBAY_CLIENT_ID!;
@@ -15,7 +15,7 @@ export function getEbayAuthUrl(ruName: string): string {
   const scope = encodeURIComponent(FEEDBACK_SCOPE);
   const clientId = encodeURIComponent(process.env.EBAY_CLIENT_ID!);
   const redirectUri = encodeURIComponent(ruName);
-  return `${base}?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&prompt=login`;
+  return `${base}?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
 }
 
 export async function exchangeCodeForTokens(code: string, ruName: string) {
