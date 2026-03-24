@@ -21,7 +21,7 @@ export default function FeaturedCarousel({ products }: { products: CarouselProdu
   const posRef = useRef(0);
   const pausedRef = useRef(false);
   const rafRef = useRef<number>(0);
-  const drag = useRef({ active: false, startX: 0, startPos: 0, moved: 0 });
+  const drag = useRef({ active: false, startX: 0, startY: 0, startPos: 0, moved: 0 });
 
   // Total width of one full set of cards
   const halfWidth = products.length * (CARD_W + GAP);
@@ -51,7 +51,13 @@ export default function FeaturedCarousel({ products }: { products: CarouselProdu
   }
 
   function onMouseDown(e: React.MouseEvent) {
-    drag.current = { active: true, startX: e.clientX, startPos: posRef.current, moved: 0 };
+    drag.current = {
+      active: true,
+      startX: e.clientX,
+      startY: 0,
+      startPos: posRef.current,
+      moved: 0,
+    };
   }
 
   function onMouseMove(e: React.MouseEvent) {
@@ -75,12 +81,63 @@ export default function FeaturedCarousel({ products }: { products: CarouselProdu
     if (drag.current.moved > 5) e.stopPropagation();
   }
 
+  // Touch handlers attached via useEffect with { passive: false } so we can
+  // call preventDefault() and stop the browser from stealing horizontal swipes.
+  // Desktop mouse events above are completely untouched.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+
+    function onTouchStart(e: TouchEvent) {
+      const touch = e.touches[0];
+      drag.current = {
+        active: true,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startPos: posRef.current,
+        moved: 0,
+      };
+      pausedRef.current = true;
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (!drag.current.active) return;
+      e.preventDefault(); // always prevent browser scroll/gesture takeover
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - drag.current.startX;
+      drag.current.moved = Math.abs(deltaX);
+      let newPos = drag.current.startPos + deltaX;
+      while (newPos > 0) newPos -= halfWidth;
+      while (newPos <= -halfWidth) newPos += halfWidth;
+      posRef.current = newPos;
+      if (trackRef.current) trackRef.current.style.transform = `translateX(${newPos}px)`;
+    }
+
+    function onTouchEnd() {
+      drag.current.active = false;
+      pausedRef.current = false;
+    }
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [halfWidth]);
+
   // Duplicate the list for seamless infinite looping
   const doubled = [...products, ...products];
   const trackWidth = doubled.length * (CARD_W + GAP);
 
   return (
     <div
+      ref={wrapperRef}
       className="overflow-hidden cursor-grab active:cursor-grabbing select-none"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -89,6 +146,7 @@ export default function FeaturedCarousel({ products }: { products: CarouselProdu
       onMouseUp={onMouseUp}
       onClickCapture={onClickCapture}
       onDragStart={(e) => e.preventDefault()}
+      style={{ touchAction: "none" }}
     >
       <div ref={trackRef} className="flex" style={{ width: trackWidth, gap: GAP }}>
         {doubled.map((product, i) => (
