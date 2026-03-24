@@ -11,6 +11,7 @@ export interface AdminProduct {
   slug: string | null;
   price: number;
   sport: string | null;
+  grade: string | null;
   stockQuantity: number;
   lowStockThreshold: number;
   isActive: boolean;
@@ -152,6 +153,7 @@ export default function ProductsTable({ products }: Props) {
               <th className="px-4 py-3">Product</th>
               <th className="px-4 py-3">Price</th>
               <th className="px-4 py-3">Stock</th>
+              <th className="px-4 py-3">Grade</th>
               <th className="px-4 py-3">Sport</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Last Sync</th>
@@ -160,8 +162,6 @@ export default function ProductsTable({ products }: Props) {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {products.map((product) => {
-              const isLowStock =
-                product.isActive && product.stockQuantity <= product.lowStockThreshold;
               const thumb = product.images[0]?.url;
 
               return (
@@ -220,15 +220,15 @@ export default function ProductsTable({ products }: Props) {
                   <td className="px-4 py-3 font-medium text-gray-800">
                     ${Number(product.price).toFixed(2)}
                   </td>
+                  <td className="px-4 py-3 text-gray-700">{product.stockQuantity}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={isLowStock ? "font-semibold text-orange-600" : "text-gray-700"}
-                    >
-                      {product.stockQuantity}
-                    </span>
-                    {isLowStock && (
-                      <span className="ml-1.5 inline-block rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700">
-                        Low
+                    {product.grade ? (
+                      <span className="inline-block rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                        {product.grade.split(" ").pop()}
+                      </span>
+                    ) : (
+                      <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-400">
+                        N/A
                       </span>
                     )}
                   </td>

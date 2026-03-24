@@ -15,6 +15,7 @@ const updateSchema = z.object({
   isActive: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
   sport: z.string().max(100).nullable().optional(),
+  grade: z.string().max(50).nullable().optional(),
   imageUrls: z.array(z.string().url()).max(10).optional(),
 });
 
@@ -58,6 +59,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (fields.isActive !== undefined) data.isActive = fields.isActive;
   if (fields.isFeatured !== undefined) data.isFeatured = fields.isFeatured;
   if (fields.sport !== undefined) data.sport = fields.sport ?? null;
+  if (fields.grade !== undefined) {
+    data.grade = fields.grade ?? null;
+    const num = fields.grade ? parseFloat(fields.grade.split(" ").pop() ?? "") : NaN;
+    data.gradeValue = isNaN(num) ? null : num;
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     const p = await tx.product.update({ where: { id }, data });

@@ -8,7 +8,6 @@ export interface CarouselProduct {
   slug: string | null;
   title: string;
   price: string;
-  condition: string;
   stockQuantity: number;
   imageUrl: string | null;
 }
@@ -99,7 +98,6 @@ export default function FeaturedCarousel({ products }: { products: CarouselProdu
               slug={product.slug}
               title={product.title}
               price={product.price}
-              condition={product.condition}
               stockQuantity={product.stockQuantity}
               imageUrl={product.imageUrl}
             />

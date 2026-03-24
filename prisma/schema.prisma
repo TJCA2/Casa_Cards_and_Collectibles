@@ -22,7 +22,6 @@ enum Condition {
   NEW
   LIKE_NEW
   USED
-  REFURBISHED
 }
 
 enum OrderStatus {
@@ -174,6 +173,7 @@ model Product {
   isFeatured        Boolean   @default(false)
   sport             String?
   grade             String?
+  gradeValue        Float?
   categoryId        String?
   lastSyncedAt      DateTime?
   createdAt         DateTime  @default(now())

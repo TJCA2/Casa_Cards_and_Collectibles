@@ -1,25 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Condition, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import ProductCard from "@/components/products/ProductCard";
 import FilterSidebar from "@/components/products/FilterSidebar";
+import SortSelect from "./SortSelect";
+import GridToggle from "./GridToggle";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
-  title: "Shop",
-  description: "Browse all sports cards and collectibles.",
+  title: "Shop Sports Cards & Collectibles",
+  description:
+    "Browse our full inventory of baseball cards, basketball cards, football cards, and sports collectibles. Filter by sport, grade, and price.",
 };
 
-const PAGE_SIZE = 20;
-
-const SORT_OPTIONS = [
-  { value: "newest", label: "Newest" },
-  { value: "price-asc", label: "Price: Low → High" },
-  { value: "price-desc", label: "Price: High → Low" },
-  { value: "grade-asc", label: "Grade: Low → High" },
-  { value: "grade-desc", label: "Grade: High → Low" },
-];
+const PAGE_SIZE: Record<3 | 4, number> = { 3: 21, 4: 20 };
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -29,16 +24,22 @@ function str(val: string | string[] | undefined): string {
 
 // ── Data fetching ──────────────────────────────────────────────────────────────
 
-async function getShopData(params: Awaited<SearchParams>) {
+async function getShopData(params: Awaited<SearchParams>, cols: 3 | 4) {
+  const pageSize = PAGE_SIZE[cols];
   const page = Math.max(1, Number(str(params.page)) || 1);
   const sort = str(params.sort);
   const categorySlug = str(params.category);
-  const condition = str(params.condition);
+
   const minPrice = str(params.minPrice);
   const maxPrice = str(params.maxPrice);
   const inStock = str(params.inStock) === "true";
   const sport = str(params.sport);
-  const grade = str(params.grade);
+  // grade supports multiple values: ?grade=10&grade=9.5
+  const gradeParams = Array.isArray(params.grade)
+    ? params.grade
+    : params.grade
+      ? [params.grade]
+      : [];
 
   const priceFilter: Prisma.DecimalFilter = {};
   if (minPrice) priceFilter.gte = new Prisma.Decimal(minPrice);
@@ -48,11 +49,14 @@ async function getShopData(params: Awaited<SearchParams>) {
   const where: Prisma.ProductWhereInput = {
     isActive: true,
     ...(categorySlug && { category: { slug: categorySlug } }),
-    ...(condition && { condition: condition as Condition }),
+
     ...(hasPriceFilter && { price: priceFilter }),
     ...(inStock && { stockQuantity: { gt: 0 } }),
     ...(sport && { sport }),
-    ...(grade && { grade }),
+    // grade params are numbers only (e.g. "10", "9.5") — match any company prefix
+    ...(gradeParams.length > 0 && {
+      OR: gradeParams.flatMap((g) => [{ grade: g }, { grade: { endsWith: ` ${g}` } }]),
+    }),
   };
 
   const orderBy: Prisma.ProductOrderByWithRelationInput =
@@ -61,17 +65,19 @@ async function getShopData(params: Awaited<SearchParams>) {
       : sort === "price-desc"
         ? { price: "desc" }
         : sort === "grade-asc"
-          ? { grade: "asc" }
+          ? { gradeValue: "asc" }
           : sort === "grade-desc"
-            ? { grade: "desc" }
-            : { createdAt: "desc" };
+            ? { gradeValue: "desc" }
+            : sort === "oldest"
+              ? { createdAt: "asc" }
+              : { createdAt: "desc" };
 
   const [products, total, sportsRaw, gradesRaw] = await Promise.all([
     prisma.product.findMany({
       where,
       orderBy,
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       include: { images: { where: { sortOrder: 0 }, take: 1 } },
     }),
     prisma.product.count({ where }),
@@ -90,9 +96,12 @@ async function getShopData(params: Awaited<SearchParams>) {
   ]);
 
   const sports = sportsRaw.map((p) => p.sport as string);
-  const grades = gradesRaw
-    .map((p) => p.grade as string)
-    .sort((a, b) => parseFloat(b) - parseFloat(a));
+
+  // Extract just the number from each grade (e.g. "PSA 10" → "10"),
+  // deduplicate, then sort numerically descending.
+  const grades = [
+    ...new Set(gradesRaw.map((p) => (p.grade as string).split(" ").pop() as string)),
+  ].sort((a, b) => parseFloat(b) - parseFloat(a));
 
   return {
     products,
@@ -102,8 +111,8 @@ async function getShopData(params: Awaited<SearchParams>) {
     page,
     sort,
     sport,
-    grade,
-    totalPages: Math.ceil(total / PAGE_SIZE),
+    gradeParams,
+    totalPages: Math.ceil(total / pageSize),
   };
 }
 
@@ -111,8 +120,10 @@ async function getShopData(params: Awaited<SearchParams>) {
 
 export default async function ShopPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const { products, total, sports, grades, page, sort, sport, grade, totalPages } =
-    await getShopData(params);
+  const cols = str(params.cols) === "3" ? 3 : 4;
+
+  const { products, total, sports, grades, page, sort, sport, gradeParams, totalPages } =
+    await getShopData(params, cols);
 
   const buildPageUrl = (p: number) => {
     const sp = new URLSearchParams(
@@ -135,23 +146,35 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
           </p>
         </div>
 
-        {/* Sort */}
-        <Suspense>
-          <SortSelect current={sort} params={params} />
-        </Suspense>
+        {/* Sort + grid toggle */}
+        <div className="flex items-center gap-3">
+          <Suspense>
+            <SortSelect current={sort} params={params} />
+          </Suspense>
+          <Suspense>
+            <GridToggle cols={cols} params={params} />
+          </Suspense>
+        </div>
       </div>
 
       <div className="flex flex-col gap-8 lg:flex-row">
         {/* Filter sidebar */}
         <Suspense>
-          <FilterSidebar sports={sports} activeSport={sport} grades={grades} activeGrade={grade} />
+          <FilterSidebar
+            sports={sports}
+            activeSport={sport}
+            grades={grades}
+            activeGrades={gradeParams}
+          />
         </Suspense>
 
         {/* Product grid */}
         <div className="flex-1">
           {products.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+              <div
+                className={`grid grid-cols-2 gap-5 ${cols === 3 ? "lg:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4"}`}
+              >
                 {products.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -159,7 +182,6 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
                     slug={product.slug}
                     title={product.title}
                     price={product.price.toString()}
-                    condition={product.condition}
                     stockQuantity={product.stockQuantity}
                     imageUrl={product.images[0]?.url ?? null}
                   />
@@ -204,43 +226,6 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
             </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Sort selector (client island) ──────────────────────────────────────────────
-
-function SortSelect({ current, params }: { current: string; params: Awaited<SearchParams> }) {
-  // Build hrefs for each sort option
-  const sortLinks = SORT_OPTIONS.map((opt) => {
-    const sp = new URLSearchParams(
-      Object.entries(params).flatMap(([k, v]) =>
-        Array.isArray(v) ? v.map((val) => [k, val]) : v ? [[k, v]] : [],
-      ),
-    );
-    sp.set("sort", opt.value);
-    sp.delete("page");
-    return { ...opt, href: `/shop?${sp.toString()}` };
-  });
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-sm text-gray-500">Sort:</span>
-      <div className="flex gap-1">
-        {sortLinks.map((opt) => (
-          <Link
-            key={opt.value}
-            href={opt.href}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-              current === opt.value || (!current && opt.value === "newest")
-                ? "bg-black text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            {opt.label}
-          </Link>
-        ))}
       </div>
     </div>
   );

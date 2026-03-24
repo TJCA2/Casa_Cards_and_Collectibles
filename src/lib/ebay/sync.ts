@@ -26,16 +26,28 @@ function mapCondition(condition?: string, conditionId?: string): Condition {
   const id = Number(conditionId ?? 0);
 
   if (id === 1000 || id === 1500) return Condition.NEW;
-  if (id >= 2000 && id <= 2750) return Condition.REFURBISHED;
   if (id === 3000) return Condition.LIKE_NEW;
 
   // Fall back to string matching when conditionId is absent
   const c = (condition ?? "").toLowerCase();
   if (c.includes("new") && !c.includes("like")) return Condition.NEW;
   if (c.includes("like new") || c === "like new") return Condition.LIKE_NEW;
-  if (c.includes("refurb") || c.includes("certified")) return Condition.REFURBISHED;
 
   return Condition.USED;
+}
+
+/**
+ * Attempts to extract a professional grade from a card listing title.
+ * Recognises PSA, BGS, SGC, CGC, HGA, GMA, KSA, BVG, CSG.
+ * Returns formatted as "GRADER NUMBER" (e.g. "PSA 10", "BGS 9.5", "SGC 98").
+ * Returns null if no recognisable grade is found.
+ */
+export function extractGradeFromTitle(title: string): string | null {
+  const match = title.match(
+    /\b(PSA|BGS|SGC|CGC|HGA|GMA|KSA|BVG|CSG)\s*(?:GEM\s*(?:MINT|MT)\s*|PRISTINE\s*|MINT\s*)?(\d+(?:\.\d+)?)\b/i,
+  );
+  if (!match) return null;
+  return `${match[1].toUpperCase()} ${match[2]}`;
 }
 
 /**
@@ -205,9 +217,11 @@ export async function runEbaySync(): Promise<SyncResult> {
         const sport = getAspect("sport");
         const grader = getAspect("grading company") ?? getAspect("professional grader");
         const gradeNum = getAspect("grade");
-        const grade =
+        const gradeFromAspects =
           getAspect("professional grade") ??
           (grader && gradeNum ? `${grader} ${gradeNum}` : (grader ?? gradeNum ?? null));
+        // Fall back to parsing the title when eBay item specifics don't have a grade
+        const grade = gradeFromAspects ?? extractGradeFromTitle(detail.title ?? item.title);
 
         // Collect all images: primary first, then additionalImages
         const seen = new Set<string>();
@@ -351,6 +365,11 @@ async function upsertProduct(
   const price = parseFloat(item.price?.value ?? "0");
   const condition = mapCondition(item.condition, item.conditionId);
   const stockQuantity = extractQuantity(item);
+  const gradeToValue = (g: string | null): number | null => {
+    if (!g) return null;
+    const n = parseFloat(g.split(" ").pop() ?? "");
+    return isNaN(n) ? null : n;
+  };
   // Prefer full-size images from the getItems detail call; fall back to search thumbnails
   const imageUrls = detailImages.length > 0 ? detailImages : allImageUrls(item);
   const slug = generateSlug(item.title, item.itemId);
@@ -373,6 +392,7 @@ async function upsertProduct(
       isActive: true,
       sport,
       grade,
+      gradeValue: gradeToValue(grade),
       lastSyncedAt: now,
       ...(categoryId && { categoryId }),
     };
@@ -392,6 +412,9 @@ async function upsertProduct(
       existingUrls.length !== imageUrls.length ||
       imageUrls.some((url, i) => existingUrls[i] !== url);
 
+    // Never overwrite an existing grade with null — keep the DB value if eBay has nothing
+    const resolvedGrade = grade ?? existing.grade;
+
     const fieldsChanged =
       existing.title !== item.title ||
       existing.price.toFixed(2) !== price.toFixed(2) ||
@@ -399,7 +422,7 @@ async function upsertProduct(
       existing.stockQuantity !== stockQuantity ||
       !existing.isActive ||
       existing.sport !== sport ||
-      existing.grade !== grade ||
+      existing.grade !== resolvedGrade ||
       existing.categoryId !== categoryId;
 
     if (!fieldsChanged && !imagesChanged) {
@@ -418,7 +441,8 @@ async function upsertProduct(
           stockQuantity,
           isActive: true,
           sport,
-          grade,
+          grade: resolvedGrade,
+          gradeValue: gradeToValue(resolvedGrade),
           lastSyncedAt: now,
           ...(categoryId && { categoryId }),
         },

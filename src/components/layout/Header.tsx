@@ -23,15 +23,15 @@ export default function Header() {
             aria-label="Casa Cards & Collectibles — Home"
           >
             <Image
-              src="/logo.png"
+              src="/image.png"
               alt="Casa Cards & Collectibles logo"
               width={44}
               height={44}
               className="invert"
               priority
             />
-            <span className="hidden text-sm font-bold uppercase tracking-widest text-white sm:block">
-              Casa Cards & Collectibles
+            <span className="hidden text-base font-extrabold uppercase tracking-wider text-white sm:block">
+              Casa Cards &amp; Collectibles
             </span>
           </Link>
 

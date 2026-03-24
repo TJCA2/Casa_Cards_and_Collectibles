@@ -3,18 +3,34 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ProductCard from "@/components/products/ProductCard";
 
-export const metadata: Metadata = {
-  title: "Search",
-  description: "Search sports cards and collectibles.",
-};
-
-const PAGE_SIZE = 12;
-
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 function str(val: string | string[] | undefined): string {
   return Array.isArray(val) ? (val[0] ?? "") : (val ?? "");
 }
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const params = await searchParams;
+  const q = str(params.q).trim().slice(0, 200);
+  if (!q) {
+    return {
+      title: "Search Cards & Collectibles",
+      description: "Search our inventory of sports cards and collectibles.",
+      robots: { index: false, follow: false },
+    };
+  }
+  return {
+    title: `Search results for "${q}"`,
+    description: `Browse sports cards and collectibles matching "${q}" at Casa Cards & Collectibles.`,
+    robots: { index: false, follow: false },
+  };
+}
+
+const PAGE_SIZE = 12;
 
 async function searchProducts(q: string, page: number) {
   const where = {
@@ -108,7 +124,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
                 slug={product.slug}
                 title={product.title}
                 price={product.price.toString()}
-                condition={product.condition}
                 stockQuantity={product.stockQuantity}
                 imageUrl={product.images[0]?.url ?? null}
               />

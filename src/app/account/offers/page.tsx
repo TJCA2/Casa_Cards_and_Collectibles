@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
+import Image from "next/image";
 import type { OfferStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -113,10 +114,15 @@ export default async function AccountOffersPage() {
               >
                 <div className="flex items-start gap-4">
                   {/* Product image */}
-                  <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                  <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100">
                     {imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                      <Image
+                        src={imageUrl}
+                        alt={offer.product.title}
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                      />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
                         <svg

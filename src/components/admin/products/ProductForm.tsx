@@ -12,6 +12,7 @@ interface InitialValues {
   isActive?: boolean;
   isFeatured?: boolean;
   sport?: string | null;
+  grade?: string | null;
   imageUrls?: string[];
   isEbaySynced?: boolean;
 }
@@ -39,6 +40,7 @@ export default function ProductForm({ mode, productId, sports, initial = {} }: P
   const [isActive, setIsActive] = useState(initial.isActive ?? true);
   const [isFeatured, setIsFeatured] = useState(initial.isFeatured ?? false);
   const [sport, setSport] = useState(initial.sport ?? "");
+  const [grade, setGrade] = useState(initial.grade ?? "");
   const [imageUrls, setImageUrls] = useState<string[]>(
     initial.imageUrls?.length ? initial.imageUrls : [""],
   );
@@ -95,6 +97,7 @@ export default function ProductForm({ mode, productId, sports, initial = {} }: P
       isActive,
       isFeatured,
       sport: sport || null,
+      grade: grade || null,
       imageUrls: validImageUrls,
     };
 
@@ -259,6 +262,20 @@ export default function ProductForm({ mode, productId, sports, initial = {} }: P
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Grade */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Grade</label>
+            <input
+              type="text"
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+              placeholder="e.g. PSA 10, BGS 9.5"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+              maxLength={50}
+            />
+            <p className="mt-1 text-xs text-gray-400">Leave blank for ungraded cards.</p>
           </div>
 
           {/* Active toggle */}

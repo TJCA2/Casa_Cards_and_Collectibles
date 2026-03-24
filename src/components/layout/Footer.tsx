@@ -1,13 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
 const SHOP_LINKS = [
   { href: "/shop", label: "All Products" },
-  { href: "/category/baseball-cards", label: "Baseball Cards" },
-  { href: "/category/basketball-cards", label: "Basketball Cards" },
-  { href: "/category/football-cards", label: "Football Cards" },
+  { href: "/shop?sport=Baseball", label: "Baseball Cards" },
+  { href: "/shop?sport=Basketball", label: "Basketball Cards" },
+  { href: "/shop?sport=Football", label: "Football Cards" },
   { href: "/reviews", label: "Customer Reviews" },
 ];
 
@@ -21,6 +22,21 @@ const LEGAL_LINKS = [
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms & Conditions" },
 ];
+
+function CookiePreferencesButton() {
+  function handleClick() {
+    localStorage.removeItem("cc_cookie_consent");
+    window.dispatchEvent(new Event("cc_show_banner"));
+  }
+  return (
+    <button
+      onClick={handleClick}
+      className="text-sm text-gray-400 hover:text-gray-300 transition-colors text-left"
+    >
+      Cookie Preferences
+    </button>
+  );
+}
 
 export default function Footer() {
   const [email, setEmail] = useState("");
@@ -48,9 +64,18 @@ export default function Footer() {
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <p className="text-sm font-bold uppercase tracking-widest text-white">
-              Casa Cards & Collectibles
-            </p>
+            <div className="flex items-center gap-2.5">
+              <Image
+                src="/image.png"
+                alt="Casa Cards & Collectibles logo"
+                width={36}
+                height={36}
+                className="invert contrast-200"
+              />
+              <p className="text-sm font-bold uppercase tracking-widest text-white">
+                Casa Cards &amp; Collectibles
+              </p>
+            </div>
             <p className="mt-2 text-sm">Your source for sports cards &amp; collectibles.</p>
             <a
               href="https://www.ebay.com/usr/casa_cards_and_collectibles"
@@ -120,6 +145,9 @@ export default function Footer() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <CookiePreferencesButton />
+              </li>
             </ul>
           </div>
 

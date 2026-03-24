@@ -39,6 +39,7 @@ export default async function EditProductPage({ params }: Params) {
     isActive: product.isActive,
     isFeatured: product.isFeatured,
     sport: product.sport,
+    grade: product.grade,
     imageUrls: product.images.map((img) => img.url),
     isEbaySynced: product.ebayItemId != null,
   };

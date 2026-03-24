@@ -107,7 +107,6 @@ export default async function CategoryPage({
                 slug={product.slug}
                 title={product.title}
                 price={product.price.toString()}
-                condition={product.condition}
                 stockQuantity={product.stockQuantity}
                 imageUrl={product.images[0]?.url ?? null}
               />

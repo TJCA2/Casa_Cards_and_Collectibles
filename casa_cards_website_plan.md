@@ -1202,65 +1202,138 @@ _Goal: Automated transactional emails and opt-in marketing._
 
 _Goal: Maximize discoverability, ensure fast load times, and meet all legal requirements._
 
+**Prerequisites:**
+
+- Phase 5 (storefront) complete — slugs, `generateMetadata`, Open Graph, and JSON-LD are already in place on product/category pages ✅
+- Phase 9.0 email system complete ✅
+- Stripe account and domain must be production-ready before Task 10.6
+
+**Architecture notes:**
+
+- Use Next.js App Router conventions: `app/sitemap.ts` and `app/robots.ts` for auto-generated sitemap and robots.txt (no extra packages needed)
+- GA4 was intentionally deferred from Phase 8 — wire it here with consent gating (Task 10.5)
+- Cloudinary for eBay image proxying is an optional optimization — eBay CDN (`i.ebayimg.com`) is already allowed in `next.config.ts`; skip unless Lighthouse flags image performance as a bottleneck
+- Legal pages should be created as static Next.js server components at `app/privacy/page.tsx`, `app/terms/page.tsx`, `app/returns/page.tsx`, `app/shipping/page.tsx` — no DB needed; update content manually when policies change
+
 ### Task 10.1 — SEO Foundations
 
-- [ ] Unique `<title>` and `<meta name="description">` for every page (Next.js Metadata API)
-- [ ] Clean, keyword-rich URLs: `/product/1993-upper-deck-derek-jeter-rookie` (use slugs)
-- [ ] `sitemap.xml` auto-generated from all active products and categories (update on sync)
-- [ ] `robots.txt` — allow all crawlers, disallow `/admin/*`, `/api/*`, `/account/*`
-- [ ] Open Graph tags for social sharing (product image, title, price)
-- [ ] `hreflang` if multilingual support added later
-- [ ] JSON-LD structured data on every product page (Product, BreadcrumbList, Organization)
-- [ ] Submit sitemap to Google Search Console and Bing Webmaster Tools
+- [x] Clean, keyword-rich URLs via slugs — done (Phase 5)
+- [x] Open Graph tags on product pages — done (Phase 5.3 `generateMetadata`)
+- [x] JSON-LD structured data on product pages (Product, BreadcrumbList) — done (Phase 5.3)
+- [x] `generateMetadata` on product pages (`/product/[slug]`) and category pages (`/category/[slug]`) — done (Phase 5.3, 5.5)
+- [x] Add `generateMetadata` to remaining pages:
+  - [x] `src/app/page.tsx` (homepage) — keyword-rich title + OG tags added
+  - [x] `src/app/shop/page.tsx` — title: "Shop Sports Cards & Collectibles" + full description
+  - [x] `src/app/search/page.tsx` — converted to dynamic `generateMetadata`; includes query in title; `noindex` (search results pages should not be indexed)
+  - [x] `src/app/reviews/page.tsx` — already had excellent dynamic `generateMetadata` with live positive % and total count (Phase 9.03.6)
+  - [x] `src/app/contact/page.tsx` — title already existed; added missing `description`
+  - [x] All auth pages (login, register, forgot-password, reset-password, error) — `src/app/auth/layout.tsx` created with `robots: { index: false, follow: false }` covering all 5 auth pages
+  - [x] `src/app/account/layout.tsx` — `robots: { index: false, follow: false }` added; covers all account sub-pages
+- [x] `app/sitemap.ts` — Next.js built-in sitemap; queries all `isActive: true` products and all categories; static pages (home, shop, reviews, contact) included; excludes admin/api/account/auth routes; build-verified at `/sitemap.xml`
+- [x] `app/robots.ts` — Next.js built-in robots.txt; `Allow: /`; `Disallow: /admin /api /account /auth`; sitemap URL included; build-verified at `/robots.txt`
+- [ ] Submit sitemap to Google Search Console (manual step — go to [search.google.com/search-console](https://search.google.com/search-console)); add `https://<yourdomain>/sitemap.xml`; also submit to Bing Webmaster Tools
+- [ ] `hreflang` — defer until multilingual support is needed (not applicable now)
 
 ### Task 10.2 — Performance
 
-- [ ] Image optimization: use `next/image` for all images (automatic WebP, lazy loading, blur placeholder)
-- [ ] Serve eBay images through Cloudinary for resizing and format optimization
-- [ ] Code splitting: each page only loads what it needs
-- [ ] Target Core Web Vitals: LCP < 2.5s, CLS < 0.1, FID/INP < 200ms
-- [ ] Enable Next.js Incremental Static Regeneration (ISR) for product pages (revalidate every 5 minutes)
-- [ ] Use a CDN for static assets (Vercel Edge Network covers this automatically)
+- [x] `next/image` used throughout — verified in all key components (ProductCard, ImageGallery, CartDrawer, Header, admin ProductsTable); all have correct `sizes` props and `priority` where appropriate
+- [x] Vercel Edge Network CDN for static assets — automatic, no action needed
+- [x] ISR on homepage (`src/app/page.tsx`) — `export const revalidate = 3600` added; build confirms `○ / 1h 1y` (statically generated, revalidates hourly); works because homepage has no dynamic functions (no cookies/session). _Note:_ Product pages intentionally stay dynamic — `getServerSession()` reads cookies which opts the route into per-request rendering; adding `revalidate` there would have no effect on Prisma queries and could cause stale wishlist/offer state per user. Comment added to product page explaining the decision.
+- [x] Plain `<img>` tag in `src/app/account/offers/page.tsx` replaced with `next/image` (`fill`, `sizes="64px"`, proper `alt` text)
+- [ ] Run Lighthouse on homepage and a product page — target 90+ in all 4 categories; fix any specific issues flagged; do this on the production/staging URL (not localhost) for accurate results
+- [ ] Core Web Vitals targets: LCP < 2.5s, CLS < 0.1, INP < 200ms — verify via Lighthouse or PageSpeed Insights after deploy
+- [ ] _Optional (skip unless Lighthouse flags it):_ Proxy eBay images through Cloudinary — eBay CDN is already fast; only needed if LCP is image-driven on product pages
 
 ### Task 10.3 — Mobile-First Design
 
-- [ ] All pages fully responsive from 320px to 2560px
-- [ ] Touch-friendly tap targets (min 44×44px)
-- [ ] Mobile navigation: hamburger menu with slide-out drawer
-- [ ] Test checkout flow on iOS Safari and Android Chrome
+- [x] Mobile navigation: hamburger + slide-out drawer — confirmed (`MobileNav.tsx`, Phase 5.0)
+- [x] Responsive layout on `/shop`, `/search`, `/product/[slug]`, `/category/[slug]` — confirmed in Phase 5
+- [x] Code audit of all remaining pages (375px viewport analysis):
+  - [x] `/checkout` — `grid grid-cols-1 lg:grid-cols-3`; form full-width on mobile, sidebar stacks below; all inputs `w-full`; step labels `hidden sm:block`; all buttons `py-3` (44px+) ✓
+  - [x] `/account/*` — sidebar is horizontal scrollable tab bar on mobile (`overflow-x-auto lg:hidden`); layout `lg:flex` stacks correctly; **Fixed:** `account/page.tsx` and `account/orders/page.tsx` table wrappers changed from `overflow-hidden` → `overflow-x-auto` (were clipping `min-w-full` multi-column tables on narrow viewports)
+  - [x] `/admin/*` — sidebar collapses to horizontal scrollable top bar (`lg:hidden`); all admin data tables confirmed `overflow-x-auto`; messages and offers tables use `w-full` + `hidden sm:table-cell` column hiding ✓; **Fixed:** `AdminSidebar.tsx` mobile nav tap targets increased from `py-1.5` (~28px) → `py-2.5` (meets WCAG 44px minimum)
+  - [x] `/contact` — all fields `w-full`, submit `w-full py-3`, `max-w-2xl px-4` container ✓
+  - [x] `/reviews` — `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` confirmed; stats `flex-col sm:flex-row` ✓
+- [x] Interactive tap targets ≥ 44×44px — audited across all pages; form buttons use `py-3` (44px+); admin mobile nav fixed (above); cart qty controls are compact but functional
+- [ ] Test on a real iPhone (iOS Safari) and Android Chrome — checkout, cart drawer, account pages (manual, requires deployed device)
 
-### Task 10.4 — Legal Pages (REQUIRED — create before launch)
+### Task 10.4 — Legal Pages (REQUIRED before launch)
 
-- [ ] Privacy Policy (GDPR + CCPA compliant — disclose all data collected and why)
-- [ ] Terms & Conditions (covers acceptable use, liability, disputes)
-- [ ] Return & Refund Policy (clearly states conditions, timeframes)
-- [ ] Shipping Policy (carriers used, estimated times, international shipping if applicable)
-- [ ] Cookie Policy + Cookie Consent Banner (opt-in for non-essential cookies)
+- [x] `src/app/privacy/page.tsx` — Privacy Policy: all data collected, 7 third-party services with links (Stripe, Resend, Supabase, Vercel, eBay API, GA4, Cloudflare Turnstile), cookies section, data retention (7yr orders / until deletion for accounts), GDPR rights (access, rectification, erasure, portability, restriction), CCPA rights (know, delete, no-sale), data security, children's privacy; `generateMetadata` with description; build-verified `○ /privacy`
+- [x] `src/app/terms/page.tsx` — Terms & Conditions: 15 sections covering acceptance, lawful use, account responsibility, product condition grading, pricing, all-sales-final policy with SNAD exception (7-day window), payment via Stripe, shipping, Make-an-Offer binding terms, IP, disclaimer of warranties, limitation of liability (capped at order amount), governing law (Pennsylvania / Allegheny County), changes; build-verified `○ /terms`
+- [x] `src/app/returns/page.tsx` — Return & Refund Policy: all sales final; exception for items significantly not as described or damaged in transit (7-day window, photos required, refund at discretion); 5–10 business day refund timeline; eBay purchases covered by eBay Money Back Guarantee; build-verified `○ /returns`
+- [x] `src/app/shipping/page.tsx` — Shipping Policy: US only; 1–2 business day processing; USPS First Class $4.99 (5–7 days) / Priority $9.99 (2–3 days) / Free over $75 (Priority); packaging detail (penny sleeve + top loader); tracking info; lost package process; address accuracy responsibility; build-verified `○ /shipping`
+- [x] Footer already links to all 4 pages (confirmed from codebase — `/privacy`, `/terms`, `/returns`, `/shipping` were already in footer nav columns)
+- [x] **Fixed domain inconsistencies:** `product/[slug]/page.tsx` fallback changed from `casacards.com` → `casa-cards.com`; `checkout/success/page.tsx` hardcoded `support@casacards.com` → `orders@casa-cards.com`
+- [x] "By creating an account you agree to our Terms & Conditions and Privacy Policy" consent line added below the submit button on `/auth/register`
 
-### Task 10.5 — GDPR / CCPA Compliance
+### Task 10.5 — GDPR / CCPA Compliance & GA4
 
-- [ ] Cookie consent banner (use `react-cookie-consent` or custom) — shown to all users
-  - Strictly Necessary (always on)
-  - Analytics (opt-in)
-  - Marketing (opt-in)
-- [ ] Respect user consent choices — only load analytics/marketing scripts after consent
-- [ ] Data deletion request form in account settings
-- [ ] Respond to deletion requests within 30 days (admin workflow)
-- [ ] Data retention policy: delete inactive accounts after 3 years (configurable)
+> Data deletion for logged-in users was implemented in Phase 7 (`DELETE /api/account`). This task covers cookie consent, GA4 wiring, and the remaining compliance items.
+
+- [x] **Cookie consent banner** — built custom component (no external package):
+  - Show on first visit to all users; persist decision in `localStorage` (key: `cc_cookie_consent`)
+  - Two actions: "Accept All" and "Essential Only"
+  - Strictly Necessary cookies: always on (session, auth) — no opt-in needed
+  - Analytics cookies: only set/load GA4 after user accepts
+  - Do NOT show the banner again after the user has made a choice
+  - Links to Privacy Policy in the banner
+  - Component: `src/components/CookieConsent.tsx` — "use client"; rendered inside `src/app/layout.tsx`
+  - Footer "Cookie Preferences" button clears consent and re-opens banner via `cc_show_banner` DOM event
+
+- [x] **GA4 setup** (deferred from Phase 8):
+  - Add `NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX` to `.env.local` and Vercel production env vars
+  - Created `src/components/GoogleAnalytics.tsx` — only loads GA4 script when consent === "all"; uses `next/script` with `strategy="afterInteractive"`; `anonymize_ip: true`
+  - Added `<GoogleAnalytics />` to `src/app/layout.tsx`
+  - Added Google domains to `script-src` and `connect-src` in `next.config.ts` CSP
+
+- [x] **Consent-gated analytics** — GA4 does NOT fire when user chose "Essential Only"; component listens for `cc_consent_update` DOM event to react to live consent changes without page reload
+
+- [x] **Data deletion for guests** — Privacy Policy section instructs guests to email `orders@casa-cards.com` to request order data deletion
+
+- [x] **Data retention** — Privacy Policy documents 7-year retention for order records (tax purposes), account data until deletion requested
+
+- [x] **Cookie Policy** — folded into Privacy Policy "Cookies" section; lists strictly necessary vs. analytics cookies; explains opt-out via footer "Cookie Preferences" link
 
 ### Task 10.6 — Sales Tax
 
-- [ ] Integrate Stripe Tax or TaxJar for automatic sales tax calculation by US state
-- [ ] Display tax amount at checkout before payment
-- [ ] Store tax amounts on `Order` records for reporting
+- [ ] Enable **Stripe Tax** in the Stripe dashboard (Dashboard → Tax → Get started) — no code changes needed for basic setup; Stripe Tax automatically calculates tax based on shipping address during PaymentIntent creation
+- [ ] Update `POST /api/checkout/create-intent` — pass `automatic_tax: { enabled: true }` to `stripe.paymentIntents.create()`; update the PaymentIntent amount to exclude manually calculated tax (Stripe Tax computes it); retrieve the tax amount from `payment_intent.automatic_tax.amount_total` before creating the Order
+- [ ] Update `CheckoutForm.tsx` Step 2 sidebar — add "Sales Tax: Calculated at payment" placeholder; the Stripe `<PaymentElement>` will show the final tax-inclusive total in the Stripe UI
+- [ ] Update `Order` model: add `taxAmount Decimal? @db.Decimal(10,2)` field if not already present (check Phase 2 schema — it was planned but confirm it exists); run `npx prisma db push` if missing
+- [ ] Store `taxAmount` on the Order record when the webhook fires (`payment_intent.succeeded` → retrieve PaymentIntent → read `automatic_tax.amount_total`)
+- [ ] Update order confirmation email and admin order detail page to show tax line item
+- [ ] _Note:_ Stripe Tax requires a registered business address. Set this in the Stripe dashboard under Business settings before enabling. You will also need to indicate which states you have nexus in.
 
 ### ✅ Phase 10 Verification
 
-- [ ] Run Lighthouse audit on homepage and a product page — target 90+ score in all categories
-- [ ] Check sitemap at `/sitemap.xml` — all active products and categories present
-- [ ] Validate all legal pages exist and are linked in the footer
-- [ ] Test cookie consent: decline analytics → confirm GA4 does NOT load
-- [ ] Test on real iPhone and Android device
+**Code-verified (confirmed in source):**
+
+- [x] `/robots.txt` — `Disallow: /admin`, `/api`, `/account`, `/auth` all present; `Sitemap:` URL correct (`robots.ts`)
+- [x] `/sitemap.xml` — queries active products + categories from DB; static pages (home, shop, reviews, contact, privacy, terms, returns, shipping) all included; no admin/api URLs (legal pages added during verification pass)
+- [x] `generateMetadata` — unique title + description on: homepage, /shop, /search (dynamic with query), /contact, /reviews (dynamic with live feedback stats), /product/[slug] (dynamic), /category/[slug] (dynamic), all 4 legal pages
+- [x] Auth pages noindex — `src/app/auth/layout.tsx` applies `robots: { index: false, follow: false }` to all auth routes; `/auth/error` has its own explicit noindex
+- [x] Account pages noindex — `src/app/account/layout.tsx` applies `robots: { index: false, follow: false }` to all account routes
+- [x] Checkout pages noindex — `/checkout` and `/checkout/success` marked `robots: { index: false }` (added during verification pass)
+- [x] Search page noindex — `robots: { index: false, follow: false }` in `generateMetadata`
+- [x] All 4 legal pages exist as static `○` routes (`/privacy`, `/terms`, `/returns`, `/shipping`) and are linked in footer
+- [x] Cookie consent banner — custom `CookieConsent.tsx`; localStorage key `cc_cookie_consent`; two-button (Accept All / Essential Only); re-openable via footer "Cookie Preferences" link; correct event wiring (`cc_consent_update`, `cc_show_banner`)
+- [x] GA4 consent-gating — `GoogleAnalytics.tsx` only loads scripts when consent === "all"; listens to `cc_consent_update` for live changes; `anonymize_ip: true`
+- [x] CSP updated — Google domains added to `script-src` and `connect-src` in `next.config.ts`
+- [x] Homepage ISR — `export const revalidate = 3600` on `app/page.tsx` (no dynamic functions on this route)
+- [x] Admin sidebar tap targets — mobile nav `py-1.5` → `py-2.5` (≥44px height)
+- [x] Account/orders table — `overflow-hidden` → `overflow-x-auto` on both account tables
+- [x] `next/image` — all `<img>` tags replaced; `offers/page.tsx` uses `fill` + `sizes="64px"`
+
+**Requires browser / production environment:**
+
+- [ ] Run Lighthouse on homepage (`/`) and a product page — all 4 scores ≥ 90; screenshot and save results
+- [ ] Run Lighthouse on `/shop` — no significant regressions
+- [ ] Cookie consent banner: on first visit confirm banner appears; "Essential Only" → GA4 script NOT in DOM; "Accept All" → GA4 loads; revisit → banner does NOT reappear
+- [ ] GA4 Realtime report: accept cookies → navigate pages → confirm active user appears in GA4 dashboard (requires `NEXT_PUBLIC_GA_MEASUREMENT_ID` set in production)
+- [ ] Tax test (Stripe test mode): on hold — Task 10.6 deferred
+- [ ] Test on real iPhone (iOS Safari) and Android Chrome: homepage, /shop, /product/[slug], /checkout — no layout breakage, tap targets usable
+- [ ] Sitemap submitted to Google Search Console (manual)
 
 ---
 
@@ -1270,7 +1343,6 @@ _Goal: Expand reach through social selling and marketplace connectors._
 
 ### Task 11.1 — Social Media Links
 
-- [ ] Add social media icons to header/footer (Instagram, Facebook, Twitter/X, TikTok)
 - [ ] Social share buttons on product pages (Pinterest is especially valuable for collectibles)
 
 ### Task 11.2 — Facebook & Instagram Shopping (Optional)
@@ -1471,6 +1543,13 @@ _Everything here must be completed before the site goes live. These are outside 
 - [ ] 404 and 500 branded error pages
 - [ ] Google Analytics 4 connected (`NEXT_PUBLIC_GA_MEASUREMENT_ID`)
 - [ ] Google Search Console verified and sitemap submitted
+
+### SEO
+
+- [ ] Submit the sitemap to Google Search Console and Bing Webmaster Tools after the site is live on the production domain.
+- [ ] Lighthouse audit — must run on production/staging, not localhost (if LH = F return to Phase 10)
+- [ ] Core web vital verification
+- [ ] 10.6 Stripe task and activation
 
 ---
 

@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import CheckoutForm from "./CheckoutForm";
 
-export const metadata = { title: "Checkout" };
+export const metadata = { title: "Checkout", robots: { index: false } };
 
 type Props = { searchParams: Promise<{ offerToken?: string }> };
 

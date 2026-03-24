@@ -298,13 +298,14 @@ export default function EbaySyncPage() {
         )}
       </div>
 
-      {/* eBay Account Connection */}
+      {/* eBay Account Connection & Reviews Sync */}
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          eBay Account Connection
+          eBay Reviews
         </h2>
         <p className="mb-4 text-sm text-gray-500">
-          Required once to authorize review syncing. Uses OAuth — no password stored.
+          Connect your eBay account once to authorize review syncing, then import buyer feedback
+          into the site. Reviews sync automatically at 6 AM UTC daily and are never overwritten.
         </p>
 
         {ebayAuth === "success" && (
@@ -319,31 +320,22 @@ export default function EbaySyncPage() {
           </div>
         )}
 
-        <a
-          href="/api/admin/ebay/authorize"
-          className="inline-block rounded-lg bg-gray-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-900"
-        >
-          Connect eBay Account
-        </a>
-      </div>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href="/api/admin/ebay/authorize"
+            className="inline-block rounded-lg bg-gray-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-900"
+          >
+            Connect eBay Account
+          </a>
 
-      {/* eBay Reviews Sync */}
-      <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          eBay Reviews Sync
-        </h2>
-        <p className="mb-4 text-sm text-gray-500">
-          Imports buyer feedback from eBay into the site. Runs automatically at 6 AM UTC daily.
-          Existing reviews are never overwritten (idempotent).
-        </p>
-
-        <button
-          onClick={syncReviews}
-          disabled={reviewSyncing}
-          className="rounded-lg bg-yellow-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {reviewSyncing ? "Syncing Reviews…" : "Sync eBay Reviews"}
-        </button>
+          <button
+            onClick={syncReviews}
+            disabled={reviewSyncing}
+            className="rounded-lg bg-yellow-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {reviewSyncing ? "Syncing Reviews…" : "Sync eBay Reviews"}
+          </button>
+        </div>
 
         {reviewSyncing && (
           <div className="mt-4 flex items-center gap-2 rounded-lg bg-yellow-50 px-5 py-3">

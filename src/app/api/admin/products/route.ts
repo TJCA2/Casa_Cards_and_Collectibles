@@ -11,7 +11,7 @@ const productSchema = z.object({
   description: z.string().max(50000).optional(),
   price: z.number().positive("Price must be positive"),
   compareAtPrice: z.number().positive().nullable().optional(),
-  condition: z.enum(["NEW", "LIKE_NEW", "USED", "REFURBISHED"]),
+  condition: z.enum(["NEW", "LIKE_NEW", "USED"]).default("USED"),
   stockQuantity: z.number().int().min(0).default(0),
   lowStockThreshold: z.number().int().min(0).default(5),
   isActive: z.boolean().default(true),

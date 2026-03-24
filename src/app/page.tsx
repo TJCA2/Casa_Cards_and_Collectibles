@@ -1,9 +1,28 @@
+import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ProductCard from "@/components/products/ProductCard";
 import FeaturedCarousel from "@/components/products/FeaturedCarousel";
 import NewsletterPopup from "@/components/homepage/NewsletterPopup";
 import EbayReviewsCarousel from "@/components/reviews/EbayReviewsCarousel";
+
+// Revalidate every hour — homepage data (featured products, newest listings, reviews)
+// changes only when eBay sync runs (every 6 hours). ISR works here because this
+// route uses no dynamic functions (no cookies/headers/getServerSession).
+export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  title: "Casa Cards & Collectibles | Sports Cards & Trading Card Store",
+  description:
+    "Shop baseball cards, basketball cards, football cards, and sports collectibles. Trusted eBay seller with 100% positive feedback. Fast shipping on all orders.",
+  openGraph: {
+    title: "Casa Cards & Collectibles | Sports Cards & Trading Card Store",
+    description:
+      "Shop baseball cards, basketball cards, football cards, and sports collectibles. Trusted eBay seller with 100% positive feedback.",
+    type: "website",
+  },
+};
 
 // ── Data fetching ──────────────────────────────────────────────────────────────
 
@@ -120,13 +139,22 @@ export default async function HomePage() {
         {/* Dark overlay so text stays readable */}
         <div className="absolute inset-0 bg-black/55" />
         <div className="relative mx-auto max-w-3xl px-4">
-          <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Casa Cards &amp; Collectibles
+          <h1 className="inline-flex flex-wrap items-center justify-center gap-3 text-4xl tracking-tight text-white sm:text-5xl lg:text-6xl">
+            <Image
+              src="/image.png"
+              alt="Casa"
+              width={86}
+              height={86}
+              className="invert contrast-200 mix-blend-screen"
+              priority
+            />
+            <span className="font-semibold">Cards &amp; Collectibles</span>
           </h1>
-          <p className="mt-4 text-lg text-white/60">
-            Your source for sports cards &amp; collectibles — baseball, basketball, football, and
-            more.
+          <p className="mt-4 text-base text-white/75 sm:text-lg">
+            Graded sports cards you can trust — from a 5-star eBay seller with hundreds of verified
+            reviews. Fast shipping, carefully packaged, and priced to move.
           </p>
+
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
               href="/shop"
@@ -159,7 +187,6 @@ export default async function HomePage() {
               slug: p.slug,
               title: p.title,
               price: p.price.toString(),
-              condition: p.condition,
               stockQuantity: p.stockQuantity,
               imageUrl: p.images[0]?.url ?? null,
             }))}
@@ -247,7 +274,6 @@ export default async function HomePage() {
                   slug={product.slug}
                   title={product.title}
                   price={product.price.toString()}
-                  condition={product.condition}
                   stockQuantity={product.stockQuantity}
                   imageUrl={product.images[0]?.url ?? null}
                 />

@@ -4,7 +4,11 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ContactForm from "@/components/contact/ContactForm";
 
-export const metadata = { title: "Contact Us" };
+export const metadata = {
+  title: "Contact Us",
+  description:
+    "Have a question about an order or a specific card? Get in touch with Casa Cards & Collectibles — we typically respond within 1–2 business days.",
+};
 
 export default async function ContactPage() {
   const session = await getServerSession(authOptions);

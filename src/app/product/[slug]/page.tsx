@@ -10,6 +10,12 @@ import ProductCard from "@/components/products/ProductCard";
 import AddToCartButton from "@/components/products/AddToCartButton";
 import WishlistButton from "@/components/products/WishlistButton";
 import MakeOfferButton from "@/components/products/MakeOfferButton";
+import BackButton from "@/components/products/BackButton";
+
+// ISR is intentionally NOT used on this route. The page calls getServerSession()
+// which reads cookies — a dynamic function that opts the route into per-request
+// rendering. ISR would have no effect on Prisma queries and could cause stale
+// wishlist/offer button states for different users. Dynamic rendering is correct here.
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -17,25 +23,10 @@ type Props = { params: Promise<{ slug: string }> };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const CONDITION_LABEL: Record<string, string> = {
-  NEW: "New",
-  LIKE_NEW: "Like New",
-  USED: "Used",
-  REFURBISHED: "Refurbished",
-};
-
-const CONDITION_STYLE: Record<string, string> = {
-  NEW: "bg-red-600 text-white",
-  LIKE_NEW: "bg-gray-800 text-white",
-  USED: "bg-gray-200 text-gray-700",
-  REFURBISHED: "bg-blue-100 text-blue-700",
-};
-
 const CONDITION_SCHEMA: Record<string, string> = {
   NEW: "https://schema.org/NewCondition",
   LIKE_NEW: "https://schema.org/LikeNewCondition",
   USED: "https://schema.org/UsedCondition",
-  REFURBISHED: "https://schema.org/RefurbishedCondition",
 };
 
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
@@ -120,12 +111,11 @@ export default async function ProductPage({ params }: Props) {
 
   const related = await getRelatedProducts(product.categoryId, product.id);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://casacards.com";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://casa-cards.com";
   const productUrl = `${siteUrl}/product/${product.slug}`;
 
   // Stock status
   const outOfStock = product.stockQuantity === 0;
-  const lowStock = !outOfStock && product.stockQuantity <= product.lowStockThreshold;
 
   // Clean description HTML
   const cleanDescription = product.description
@@ -189,29 +179,10 @@ export default async function ProductPage({ params }: Props) {
       />
 
       <div className="mx-auto max-w-7xl px-4 py-10">
-        {/* Breadcrumb */}
-        <nav className="mb-6 flex items-center gap-1.5 text-sm text-gray-500">
-          <Link href="/" className="hover:text-gray-900">
-            Home
-          </Link>
-          <span>/</span>
-          {product.category ? (
-            <>
-              <Link href={`/category/${product.category.slug}`} className="hover:text-gray-900">
-                {product.category.name}
-              </Link>
-              <span>/</span>
-            </>
-          ) : (
-            <>
-              <Link href="/shop" className="hover:text-gray-900">
-                Shop
-              </Link>
-              <span>/</span>
-            </>
-          )}
-          <span className="line-clamp-1 text-gray-900">{product.title}</span>
-        </nav>
+        {/* Back button */}
+        <div className="mb-4">
+          <BackButton />
+        </div>
 
         {/* Product layout */}
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
@@ -246,21 +217,11 @@ export default async function ProductPage({ params }: Props) {
               </Link>
             )}
 
-            {/* Grade / condition + sport badges */}
+            {/* Grade + sport badges */}
             <div className="flex flex-wrap gap-2">
-              {product.grade ? (
-                <span className="w-fit rounded-full bg-yellow-100 px-3 py-0.5 text-xs font-semibold text-yellow-800">
-                  {product.grade}
-                </span>
-              ) : (
-                <span
-                  className={`w-fit rounded-full px-3 py-0.5 text-xs font-semibold ${
-                    CONDITION_STYLE[product.condition] ?? "bg-gray-200 text-gray-700"
-                  }`}
-                >
-                  {CONDITION_LABEL[product.condition] ?? product.condition}
-                </span>
-              )}
+              <span className="w-fit rounded-full bg-yellow-100 px-3 py-0.5 text-xs font-semibold text-yellow-800">
+                {product.grade ? product.grade.split(" ").pop() : "N/A"}
+              </span>
               {product.sport && (
                 <span className="w-fit rounded-full bg-blue-100 px-3 py-0.5 text-xs font-semibold text-blue-700">
                   {product.sport}
@@ -287,11 +248,6 @@ export default async function ProductPage({ params }: Props) {
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600">
                   <span className="h-2 w-2 rounded-full bg-red-500" />
                   Out of Stock
-                </span>
-              ) : lowStock ? (
-                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-orange-600">
-                  <span className="h-2 w-2 rounded-full bg-orange-500" />
-                  Only {product.stockQuantity} left!
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-600">
@@ -426,7 +382,6 @@ export default async function ProductPage({ params }: Props) {
                   slug={p.slug}
                   title={p.title}
                   price={p.price.toString()}
-                  condition={p.condition}
                   stockQuantity={p.stockQuantity}
                   imageUrl={p.images[0]?.url ?? null}
                 />

@@ -6,6 +6,8 @@ import SearchShortcut from "@/components/layout/SearchShortcut";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/cart/CartDrawer";
 import Providers from "@/components/layout/Providers";
+import CookieConsent from "@/components/CookieConsent";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 export const metadata: Metadata = {
   title: {
@@ -24,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="flex min-h-screen flex-col bg-white text-gray-900 antialiased">
+        <GoogleAnalytics />
         <Providers>
           <CartProvider>
             <SearchShortcut />
@@ -31,6 +34,7 @@ export default function RootLayout({
             <CartDrawer />
             <main className="flex-1">{children}</main>
             <Footer />
+            <CookieConsent />
           </CartProvider>
         </Providers>
       </body>

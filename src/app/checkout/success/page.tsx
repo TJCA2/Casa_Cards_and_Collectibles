@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export const metadata: Metadata = { title: "Order Confirmed" };
+export const metadata: Metadata = { title: "Order Confirmed", robots: { index: false } };
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -184,7 +184,7 @@ export default async function SuccessPage({ searchParams }: { searchParams: Sear
 
       <p className="mt-6 text-xs text-gray-400">
         Questions about your order?{" "}
-        <a href="mailto:support@casacards.com" className="underline">
+        <a href="mailto:orders@casa-cards.com" className="underline">
           Contact us
         </a>
         .

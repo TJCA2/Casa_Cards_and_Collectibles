@@ -18,6 +18,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
   const q = str(params.q).trim();
   const status = str(params.status); // "active" | "inactive" | ""
   const sport = str(params.sport);
+  const gradeFilter = str(params.grade); // "ungraded" | ""
   const page = Math.max(1, Number(str(params.page)) || 1);
 
   const where: Prisma.ProductWhereInput = {
@@ -25,6 +26,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
     ...(status === "active" && { isActive: true }),
     ...(status === "inactive" && { isActive: false }),
     ...(sport && { sport }),
+    ...(gradeFilter === "ungraded" && { grade: null }),
   };
 
   const [products, total, sportsRaw] = await Promise.all([
@@ -39,6 +41,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
         slug: true,
         price: true,
         sport: true,
+        grade: true,
         stockQuantity: true,
         lowStockThreshold: true,
         isActive: true,
@@ -65,6 +68,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
     slug: p.slug,
     price: Number(p.price),
     sport: p.sport,
+    grade: p.grade,
     stockQuantity: p.stockQuantity,
     lowStockThreshold: p.lowStockThreshold,
     isActive: p.isActive,
@@ -81,6 +85,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
     if (q) u.set("q", q);
     if (status) u.set("status", status);
     if (sport) u.set("sport", sport);
+    if (gradeFilter) u.set("grade", gradeFilter);
     if (p > 1) u.set("page", String(p));
     const s = u.toString();
     return `/admin/products${s ? `?${s}` : ""}`;
@@ -91,6 +96,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
     if (key !== "q" && q) u.set("q", q);
     if (key !== "status" && status) u.set("status", status);
     if (key !== "sport" && sport) u.set("sport", sport);
+    if (key !== "grade" && gradeFilter) u.set("grade", gradeFilter);
     if (val) u.set(key, val);
     const s = u.toString();
     return `/admin/products${s ? `?${s}` : ""}`;
@@ -165,7 +171,18 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
           ))}
         </div>
 
-        {(q || status || sport) && (
+        <Link
+          href={filterUrl("grade", gradeFilter === "ungraded" ? "" : "ungraded")}
+          className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+            gradeFilter === "ungraded"
+              ? "bg-yellow-500 text-white"
+              : "border border-gray-300 text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          No Grade (N/A)
+        </Link>
+
+        {(q || status || sport || gradeFilter) && (
           <Link href="/admin/products" className="text-sm text-gray-400 hover:text-gray-600">
             Clear filters
           </Link>
