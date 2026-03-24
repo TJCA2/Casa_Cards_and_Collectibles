@@ -140,14 +140,10 @@ export default async function HomePage() {
         <div className="absolute inset-0 bg-black/35 sm:bg-black/55" />
         <div className="relative mx-auto max-w-3xl px-4">
           <h1 className="inline-flex flex-wrap items-center justify-center gap-3 text-4xl tracking-tight text-white sm:text-5xl lg:text-6xl">
-            <Image
-              src="/image.png"
-              alt="Casa"
-              width={86}
-              height={86}
-              className="invert contrast-200 mix-blend-screen"
-              priority
-            />
+            {/* mix-blend-screen causes a dark compositing box on real iOS Safari.
+                invert alone renders the logo white on the dark hero overlay
+                and is identical visually on desktop. */}
+            <Image src="/image.png" alt="Casa" width={86} height={86} className="invert" priority />
             <span className="font-semibold">Cards &amp; Collectibles</span>
           </h1>
           <p className="mt-4 text-base text-white/75 sm:text-lg">
