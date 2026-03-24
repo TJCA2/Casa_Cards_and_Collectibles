@@ -22,19 +22,14 @@ export default function Header() {
             className="flex items-center gap-2"
             aria-label="Casa Cards & Collectibles — Home"
           >
-            {/* bg-black on wrapper prevents iOS Safari's grey compositing
-                artifact that appears behind transparent PNGs when CSS
-                filters (invert) are applied — desktop is unaffected */}
-            <span className="block bg-black">
-              <Image
-                src="/image.png"
-                alt="Casa Cards & Collectibles logo"
-                width={44}
-                height={44}
-                className="invert"
-                priority
-              />
-            </span>
+            <Image
+              src="/image.png"
+              alt="Casa Cards & Collectibles logo"
+              width={44}
+              height={44}
+              className="invert"
+              priority
+            />
             <span className="hidden text-base font-extrabold uppercase tracking-wider text-white sm:block">
               Casa Cards &amp; Collectibles
             </span>
