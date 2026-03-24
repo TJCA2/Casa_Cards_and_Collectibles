@@ -136,8 +136,8 @@ export default async function HomePage() {
           backgroundPosition: "center",
         }}
       >
-        {/* Dark overlay so text stays readable */}
-        <div className="absolute inset-0 bg-black/55" />
+        {/* Dark overlay so text stays readable — lighter on mobile where bg crops darker */}
+        <div className="absolute inset-0 bg-black/35 sm:bg-black/55" />
         <div className="relative mx-auto max-w-3xl px-4">
           <h1 className="inline-flex flex-wrap items-center justify-center gap-3 text-4xl tracking-tight text-white sm:text-5xl lg:text-6xl">
             <Image
