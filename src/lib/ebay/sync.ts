@@ -46,7 +46,7 @@ export function extractGradeFromTitle(title: string): string | null {
   const match = title.match(
     /\b(PSA|BGS|SGC|CGC|HGA|GMA|KSA|BVG|CSG)\s*(?:GEM\s*(?:MINT|MT)\s*|PRISTINE\s*|MINT\s*)?(\d+(?:\.\d+)?)\b/i,
   );
-  if (!match) return null;
+  if (!match || !match[1] || !match[2]) return null;
   return `${match[1].toUpperCase()} ${match[2]}`;
 }
 
