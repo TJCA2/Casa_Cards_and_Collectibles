@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Shipping Policy | Casa Cards & Collectibles",
@@ -96,9 +97,9 @@ export default function ShippingPage() {
           <p>
             A tracking number is emailed to you as soon as your order ships. You can also find it in
             your{" "}
-            <a href="/account/orders" className="text-red-600 underline">
+            <Link href="/account/orders" className="text-red-600 underline">
               order history
-            </a>{" "}
+            </Link>{" "}
             if you have an account. Track your package directly on the{" "}
             <a
               href="https://www.usps.com/"

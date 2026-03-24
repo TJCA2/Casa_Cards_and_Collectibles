@@ -221,7 +221,8 @@ export async function runEbaySync(): Promise<SyncResult> {
           getAspect("professional grade") ??
           (grader && gradeNum ? `${grader} ${gradeNum}` : (grader ?? gradeNum ?? null));
         // Fall back to parsing the title when eBay item specifics don't have a grade
-        const grade = gradeFromAspects ?? extractGradeFromTitle(detail.title ?? item.title);
+        const listing = listings.find((l) => l.itemId === itemId);
+        const grade = gradeFromAspects ?? extractGradeFromTitle(listing?.title ?? "");
 
         // Collect all images: primary first, then additionalImages
         const seen = new Set<string>();

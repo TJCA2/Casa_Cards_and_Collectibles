@@ -22,7 +22,7 @@ async function main() {
     select: { id: true, title: true },
   });
 
-  console.log(`Found ${products.length} products with no grade.`);
+  console.warn(`Found ${products.length} products with no grade.`);
 
   let updated = 0;
   let skipped = 0;
@@ -31,14 +31,14 @@ async function main() {
     const grade = extractGradeFromTitle(product.title);
     if (grade) {
       await prisma.product.update({ where: { id: product.id }, data: { grade } });
-      console.log(`  ✓ "${product.title.slice(0, 60)}" → ${grade}`);
+      console.warn(`  ✓ "${product.title.slice(0, 60)}" → ${grade}`);
       updated++;
     } else {
       skipped++;
     }
   }
 
-  console.log(`\nDone. Updated: ${updated}, No grade found: ${skipped}`);
+  console.warn(`\nDone. Updated: ${updated}, No grade found: ${skipped}`);
 }
 
 main()
