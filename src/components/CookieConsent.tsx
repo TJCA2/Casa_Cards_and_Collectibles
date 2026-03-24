@@ -12,9 +12,13 @@ export function dispatchConsentUpdate() {
 }
 
 export default function CookieConsent() {
-  const [show, setShow] = useState(() => !localStorage.getItem(CONSENT_KEY));
+  const [show, setShow] = useState(false);
 
   useEffect(() => {
+    // Show banner only if user hasn't decided yet (localStorage is client-only)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!localStorage.getItem(CONSENT_KEY)) setShow(true);
+
     // Allow footer "Cookie Preferences" link to re-open the banner
     function handleShow() {
       setShow(true);

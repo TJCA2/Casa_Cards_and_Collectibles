@@ -12,9 +12,13 @@ const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
  * If GA_ID is not set, renders nothing — safe for dev environments.
  */
 export default function GoogleAnalytics() {
-  const [consent, setConsent] = useState<string | null>(() => localStorage.getItem(CONSENT_KEY));
+  const [consent, setConsent] = useState<string | null>(null);
 
   useEffect(() => {
+    // Read initial stored consent on mount (localStorage is client-only)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setConsent(localStorage.getItem(CONSENT_KEY));
+
     // Re-evaluate when the user accepts or declines via the banner
     function handleUpdate() {
       setConsent(localStorage.getItem(CONSENT_KEY));
