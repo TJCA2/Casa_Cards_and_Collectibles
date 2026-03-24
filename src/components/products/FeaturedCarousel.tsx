@@ -92,6 +92,7 @@ export default function FeaturedCarousel({ products }: { products: CarouselProdu
 
     function onTouchStart(e: TouchEvent) {
       const touch = e.touches[0];
+      if (!touch) return;
       drag.current = {
         active: true,
         startX: touch.clientX,
