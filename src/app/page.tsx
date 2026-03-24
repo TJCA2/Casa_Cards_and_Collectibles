@@ -198,9 +198,11 @@ export default async function HomePage() {
       {reviews.length > 0 && (
         <section className="bg-gray-50 py-14">
           <div className="mx-auto max-w-7xl px-4">
-            <div className="mb-8 flex items-center justify-between">
+            <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">What Our Customers Say</h2>
+                <h2 className="text-2xl font-bold text-gray-900 whitespace-nowrap">
+                  What Our Customers Say
+                </h2>
                 <p className="mt-1 text-sm text-gray-500">
                   Real feedback from verified eBay buyers
                 </p>

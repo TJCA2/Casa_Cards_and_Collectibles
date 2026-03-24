@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import ProductCard from "@/components/products/ProductCard";
 import FilterSidebar from "@/components/products/FilterSidebar";
+import MobileFilterSheet from "@/components/products/MobileFilterSheet";
 import SortSelect from "./SortSelect";
 import GridToggle from "./GridToggle";
 import { Suspense } from "react";
@@ -32,7 +33,6 @@ async function getShopData(params: Awaited<SearchParams>, cols: 3 | 4) {
 
   const minPrice = str(params.minPrice);
   const maxPrice = str(params.maxPrice);
-  const inStock = str(params.inStock) === "true";
   const sport = str(params.sport);
   // grade supports multiple values: ?grade=10&grade=9.5
   const gradeParams = Array.isArray(params.grade)
@@ -51,7 +51,6 @@ async function getShopData(params: Awaited<SearchParams>, cols: 3 | 4) {
     ...(categorySlug && { category: { slug: categorySlug } }),
 
     ...(hasPriceFilter && { price: priceFilter }),
-    ...(inStock && { stockQuantity: { gt: 0 } }),
     ...(sport && { sport }),
     // grade params are numbers only (e.g. "10", "9.5") — match any company prefix
     ...(gradeParams.length > 0 && {
@@ -146,14 +145,26 @@ export default async function ShopPage({ searchParams }: { searchParams: SearchP
           </p>
         </div>
 
-        {/* Sort + grid toggle */}
-        <div className="flex items-center gap-3">
+        {/* Controls: filters (mobile only) + sort + grid toggle */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="lg:hidden">
+            <Suspense>
+              <MobileFilterSheet
+                sports={sports}
+                activeSport={sport}
+                grades={grades}
+                activeGrades={gradeParams}
+              />
+            </Suspense>
+          </div>
           <Suspense>
             <SortSelect current={sort} params={params} />
           </Suspense>
-          <Suspense>
-            <GridToggle cols={cols} params={params} />
-          </Suspense>
+          <div className="hidden lg:block">
+            <Suspense>
+              <GridToggle cols={cols} params={params} />
+            </Suspense>
+          </div>
         </div>
       </div>
 

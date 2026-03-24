@@ -61,13 +61,12 @@ export default function FilterSidebar({
     setGrades(next);
   }
 
-  const inStock = searchParams.get("inStock") === "true";
   const minPrice = searchParams.get("minPrice") ?? "";
   const maxPrice = searchParams.get("maxPrice") ?? "";
-  const hasFilters = inStock || minPrice || maxPrice || activeSport || activeGrades.length > 0;
+  const hasFilters = minPrice || maxPrice || activeSport || activeGrades.length > 0;
 
   return (
-    <aside className="w-full space-y-6 lg:w-52 lg:flex-shrink-0">
+    <aside className="hidden w-52 flex-shrink-0 space-y-6 lg:block">
       {/* Header + clear */}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-900">Filters</h2>
@@ -226,19 +225,6 @@ export default function FilterSidebar({
             Apply
           </button>
         </form>
-      </div>
-
-      {/* In stock */}
-      <div>
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            checked={inStock}
-            onChange={() => setParam("inStock", inStock ? null : "true")}
-            className="h-4 w-4 rounded border-gray-300 accent-red-600"
-          />
-          <span className="text-sm font-medium text-gray-700">In Stock Only</span>
-        </label>
       </div>
     </aside>
   );

@@ -11,6 +11,7 @@ import AddToCartButton from "@/components/products/AddToCartButton";
 import WishlistButton from "@/components/products/WishlistButton";
 import MakeOfferButton from "@/components/products/MakeOfferButton";
 import BackButton from "@/components/products/BackButton";
+import ShareButtons from "@/components/products/ShareButtons";
 
 // ISR is intentionally NOT used on this route. The page calls getServerSession()
 // which reads cookies — a dynamic function that opts the route into per-request
@@ -367,6 +368,13 @@ export default async function ProductPage({ params }: Props) {
                 <p className="text-sm text-gray-700">{product.description}</p>
               </div>
             ) : null}
+
+            {/* Share buttons */}
+            <ShareButtons
+              title={product.title}
+              url={productUrl}
+              imageUrl={product.images[0]?.url ?? null}
+            />
           </div>
         </div>
 

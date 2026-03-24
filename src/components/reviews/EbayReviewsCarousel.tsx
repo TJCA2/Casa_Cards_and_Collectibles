@@ -15,11 +15,27 @@ interface Props {
 }
 
 const CARDS_PER_PAGE = 3;
-const INTERVAL_MS = 6000;
+const INTERVAL_DESKTOP_MS = 6000;
+const INTERVAL_MOBILE_MS = 4800; // 1.25× faster on mobile
 
 export default function EbayReviewsCarousel({ reviews, sellerStats }: Props) {
   const [page, setPage] = useState(0);
   const pausedRef = useRef(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const [intervalMs, setIntervalMs] = useState(() => {
+    if (typeof window === "undefined") return INTERVAL_DESKTOP_MS;
+    return window.matchMedia("(max-width: 1023px)").matches
+      ? INTERVAL_MOBILE_MS
+      : INTERVAL_DESKTOP_MS;
+  });
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const handler = (e: MediaQueryListEvent) =>
+      setIntervalMs(e.matches ? INTERVAL_MOBILE_MS : INTERVAL_DESKTOP_MS);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const totalPages = Math.ceil(reviews.length / CARDS_PER_PAGE);
 
@@ -30,9 +46,9 @@ export default function EbayReviewsCarousel({ reviews, sellerStats }: Props) {
     if (totalPages <= 1) return;
     const id = setInterval(() => {
       if (!pausedRef.current) next();
-    }, INTERVAL_MS);
+    }, intervalMs);
     return () => clearInterval(id);
-  }, [next, totalPages]);
+  }, [next, totalPages, intervalMs]);
 
   if (reviews.length === 0) return null;
 
@@ -40,8 +56,25 @@ export default function EbayReviewsCarousel({ reviews, sellerStats }: Props) {
 
   return (
     <div
+      style={{ touchAction: "pan-y" }}
       onMouseEnter={() => (pausedRef.current = true)}
       onMouseLeave={() => (pausedRef.current = false)}
+      onTouchStart={(e) => {
+        touchStartXRef.current = e.touches[0]?.clientX ?? null;
+        pausedRef.current = true;
+      }}
+      onTouchEnd={(e) => {
+        if (touchStartXRef.current === null) return;
+        const endX = e.changedTouches[0]?.clientX;
+        if (endX !== undefined) {
+          const delta = touchStartXRef.current - endX;
+          if (Math.abs(delta) > 50) {
+            delta > 0 ? next() : prev();
+          }
+        }
+        touchStartXRef.current = null;
+        pausedRef.current = false;
+      }}
     >
       {/* Seller stats bar */}
       {sellerStats && (

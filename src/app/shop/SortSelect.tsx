@@ -29,7 +29,10 @@ export default function SortSelect({ current, params }: { current: string; param
 
   return (
     <div className="flex items-center gap-2">
-      <label htmlFor="sort-select" className="text-sm text-gray-500 whitespace-nowrap">
+      <label
+        htmlFor="sort-select"
+        className="hidden text-sm text-gray-500 whitespace-nowrap sm:inline"
+      >
         Sort By
       </label>
       <select

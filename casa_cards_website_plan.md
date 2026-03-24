@@ -1337,35 +1337,94 @@ _Goal: Maximize discoverability, ensure fast load times, and meet all legal requ
 
 ---
 
-## Phase 11 — Social & Cross-Platform Integration
+## Phase 11 — Social, Cross-Platform Integration & Launch Polish
 
-_Goal: Expand reach through social selling and marketplace connectors._
+_Goal: Expand reach through social selling and marketplace connectors; complete remaining pre-launch polish items._
 
-### Task 11.1 — Social Media Links
+### Task 11.0 — Favicon & Web App Icons ✅
 
-- [ ] Social share buttons on product pages (Pinterest is especially valuable for collectibles)
+- [x] Generated full favicon set from `public/image.png` using `sharp`:
+  - `public/favicon-16x16.png` and `public/favicon-32x32.png`
+  - `public/apple-touch-icon.png` — 180×180 PNG
+  - `public/android-chrome-192x192.png` and `public/android-chrome-512x512.png`
+  - `src/app/icon.png` — 32×32; auto-detected by Next.js App Router (generates `<link rel="icon">`)
+  - `src/app/apple-icon.png` — 180×180; auto-detected (generates `<link rel="apple-touch-icon">`)
+- [x] Created `public/site.webmanifest` with name, short_name, icons (192+512), theme_color, background_color, display
+- [x] Updated `src/app/layout.tsx` metadata — added `manifest: "/site.webmanifest"` and `theme-color: "#000000"`
+- [x] Build confirmed: `○ /icon.png` appears in build output — Next.js serving icon correctly
+- [ ] Verify in browser: tab shows Casa Cards logo; iOS "Add to Home Screen" shows branded icon; no generic grey globe
 
-### Task 11.2 — Facebook & Instagram Shopping (Optional)
+### Task 11.1 — Social Share Buttons on Product Pages ✅
 
-- [ ] Generate a Facebook Product Catalog XML feed at `/feeds/facebook.xml`
-- [ ] Feed includes: id, title, description, price, condition, image_link, availability
-- [ ] Submit to Facebook Business Manager for Facebook/Instagram Shopping approval
+- [x] Created `src/components/products/ShareButtons.tsx` — "use client" component; accepts `title`, `url`, `imageUrl` props
+- [x] Pinterest — pre-fills image + description; opens in new tab; `rel="noopener noreferrer"`
+- [x] Facebook — share link; opens in new tab
+- [x] X / Twitter — pre-fills title + URL; opens in new tab
+- [x] Native Share — `navigator.share()` inside `try/catch`; button only rendered when `"share" in navigator` (mobile); silent on cancel
+- [x] All icons inline SVG — no external library; zero tracking pixels
+- [x] Wired into `src/app/product/[slug]/page.tsx` — renders at bottom of product info column, above related products
+- [x] Build confirmed clean
 
-### Task 11.3 — Google Shopping Feed
+### Task 11.2 — 404 & 500 Branded Error Pages ✅
 
-- [ ] Generate a Google Merchant Center product feed (XML or CSV) at `/feeds/google.xml`
-- [ ] Include required fields: id, title, description, link, image_link, price, availability, condition, brand, gtin/mpn
-- [ ] Submit to Google Merchant Center
+- [x] `src/app/not-found.tsx` — branded 404: logo, large ghost "404", "Page Not Found" h1, friendly message, "Browse All Products" (red) + "Go Home" (outline) CTAs; `robots: noindex`
+- [x] `src/app/error.tsx` — `"use client"` runtime error boundary: same logo + layout, "Something Went Wrong" h1, "Try Again" button (`reset()`), "Return to Shop" link; no error details exposed to user
+- [x] `src/app/global-error.tsx` — root-level error boundary: own `<html>/<body>` shell with inline styles (no layout dependency); "Try Again" + "Return to Shop" in red/outline buttons
+- [x] Build confirmed clean
+- [ ] Verify in browser: `/nonexistent-page` → branded 404 renders correctly
 
-### Task 11.4 — eBay Cross-Promotion
+### Task 11.3 — Google Shopping Feed ✅
 
-- [ ] Add an "Also available on eBay" note on product pages that are still active on eBay
-- [ ] Footer link back to eBay store for buyers who prefer eBay's buyer protections
+- [x] `src/app/feeds/google.xml/route.ts` — public `GET` handler; no auth; queries all `isActive: true` products with a primary image
+- [x] All required Google Merchant Center fields: `g:id`, `g:title`, `g:description` (HTML stripped, 5000 char max), `g:link`, `g:image_link`, `g:price` (USD), `g:availability`, `g:condition` (NEW→new / LIKE_NEW→used / USED→used / REFURBISHED→refurbished), `g:brand`, `g:identifier_exists: no`
+- [x] Products without an image are skipped (Google requires `image_link`)
+- [x] `Content-Type: application/xml; charset=utf-8` + `Cache-Control: public, max-age=3600, stale-while-revalidate=600`
+- [x] All text fields XML-escaped (`&`, `<`, `>`, `"`, `'`)
+- [x] `/feeds/google.xml` is already crawler-accessible — `robots.ts` uses `allow: "/"` broadly; not blocked by any disallow rule
+- [x] Build confirmed: `ƒ /feeds/google.xml` in build output
+- [ ] _Manual step:_ Submit `https://casa-cards.com/feeds/google.xml` to Google Merchant Center after the site is live
+
+### Task 11.4 — Facebook & Instagram Shopping Feed (Optional) [THIS WILL BE DONE AFTER PRODCUTION AS ONE OF THE FINAL STEPS]
+
+> _Requires an active Facebook Business Manager account and catalog approval from Meta. Only pursue once the site is live._
+
+- [ ] `src/app/feeds/facebook.xml/route.ts` — `GET` handler, same structure as Google feed:
+  - Meta Product Catalog required fields: `id`, `title`, `description`, `availability`, `condition`, `price`, `link`, `image_link`, `brand`
+  - `availability`: `in stock` / `out of stock`
+  - `condition`: `new` / `used` (same mapping as Google feed)
+- [ ] _Manual step:_ Submit feed URL in Facebook Business Manager → Catalogs → Add items → Use data feed
+
+### Task 11.5 — eBay Cross-Promotion ✅ (Completed in Phase 9.03)
+
+> _This task was fully completed as part of Phase 9.03:_
+>
+> - Product page "Also available on eBay" styled pill badge — Task 9.03.4 ✅
+> - Header desktop eBay pill link — Task 9.03.5 ✅
+> - Footer "Visit eBay Store ↗" link with eBay colour logo — Task 9.03.5 ✅
+>
+> _No further action needed._
 
 ### ✅ Phase 11 Verification
 
-- [ ] Validate Google Shopping feed with Google's Rich Results Test
-- [ ] Confirm social share buttons generate correct Open Graph previews (use [opengraph.xyz](https://opengraph.xyz))
+**Code-verified (confirmed in source):**
+
+- [x] `src/app/icon.png` + `src/app/apple-icon.png` — auto-detected by Next.js; `○ /icon.png` in build output
+- [x] `public/site.webmanifest` — wired via `manifest: "/site.webmanifest"` in `layout.tsx` metadata
+- [x] `src/app/not-found.tsx` — branded 404; noindex; "Browse All Products" (red) + "Go Home" CTAs
+- [x] `src/app/error.tsx` — `"use client"` runtime error boundary; `reset()` wired; no error detail exposed
+- [x] `src/app/global-error.tsx` — own `<html>/<body>` shell with inline styles; safe even if root layout crashes
+- [x] `src/components/products/ShareButtons.tsx` — Pinterest / Facebook / X links + hydration-safe native share button (`useEffect` + state); inline SVGs; no third-party scripts
+- [x] `src/app/feeds/google.xml/route.ts` — all required Merchant Center fields; XML-escaped; products without images skipped; `Cache-Control: public, max-age=3600`
+- [x] Build clean across all tasks
+
+**Requires browser / deployed environment:**
+
+- [ ] **Favicon:** browser tab shows Casa Cards logo; `site.webmanifest` loads at `/site.webmanifest` with correct JSON
+- [ ] **404:** navigate to `/this-page-does-not-exist` → branded page renders with CTAs
+- [ ] **500:** trigger a runtime error in dev → branded error page with "Try Again" renders
+- [ ] **Share buttons:** on a product page, click Pinterest → new tab opens pre-filled with product image + title; X opens with title + URL
+- [ ] **Google Shopping feed:** load `/feeds/google.xml` → valid XML; validate at [Merchant Center feed validator](https://merchants.google.com) after site is live
+- [ ] **Open Graph:** paste a product URL into [opengraph.xyz](https://opengraph.xyz) → title, description, image all populate
 
 ---
 
@@ -1491,72 +1550,90 @@ TAXJAR_API_KEY=<...>
 
 ---
 
-## 🚀 Final To-Dos Before Launch
+## 🚀 What's Left To Do (as of 2026-03-24)
 
-_Everything here must be completed before the site goes live. These are outside the normal phase work — mostly account setup, legal, and business operations._
+### 🔴 Must-Do Before Going Live (Blockers)
 
-### Payments & Finance
+**Payments**
 
-- [ ] **Transfer Stripe account** — switch ownership from dev account to the business owner's Stripe account; update all live keys in Vercel env vars
-- [ ] **Activate Stripe live mode** — replace all `sk_test_` / `pk_test_` keys with live `sk_live_` / `pk_live_` keys
-- [ ] **Re-register Stripe webhook** in live mode with the production URL (`https://casa-cards.com/api/webhooks/stripe`)
-- [ ] **Set up Stripe payouts** — connect a bank account to receive funds; confirm payout schedule
-- [ ] **Verify Stripe identity** — complete Stripe's identity verification if prompted (required for live payments)
-- [ ] **Sales tax** — configure Stripe Tax or TaxJar for automatic US state sales tax collection
+- [ ] Transfer Stripe account ownership to the business owner; swap in live `sk_live_` / `pk_live_` keys in Vercel
+- [ ] Re-register Stripe webhook in live mode: `https://casa-cards.com/api/webhooks/stripe`
+- [ ] Connect a bank account in Stripe for payouts; complete Stripe identity verification if prompted
+- [ ] Enable Stripe Tax (Task 10.6): Dashboard → Tax → Get started; update `POST /api/checkout/create-intent` with `automatic_tax: { enabled: true }`; store `taxAmount` on Order in webhook handler; update order email + admin order detail page to show tax line
 
-### Email & Compliance
+**Hosting & Environment** ✅
 
-- [ ] **Add physical business mailing address** to `BUSINESS_ADDRESS` env var (required for CAN-SPAM footer in all emails)
-- [ ] **Verify sending domain** in Resend — add SPF, DKIM, and DMARC DNS records for `casa-cards.com` so emails don't land in spam
-- [ ] **Set `EMAIL_FROM`** to a branded address (e.g. `orders@casa-cards.com`) in Vercel env vars
+- [x] Point domain DNS to Vercel (`A` / `CNAME` records); confirm SSL certificate is active
+- [x] Set every production env var in Vercel dashboard:
+  - [x]`NEXTAUTH_URL=https://casa-cards.com`
+  - [x]`NEXT_PUBLIC_SITE_URL=https://casa-cards.com`
+  - [x]`NEXTAUTH_SECRET` (64-char random string)
+  - [x]`DATABASE_URL` (Supabase production connection string)
+  - [x]`EBAY_CLIENT_ID` + `EBAY_CLIENT_SECRET` + `EBAY_SYNC_SECRET`
+  - [ ]`STRIPE_SECRET_KEY` (live) + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (live) + `STRIPE_WEBHOOK_SECRET` (live)
+  - [x]`RESEND_API_KEY` + `EMAIL_FROM=orders@casa-cards.com` + `BUSINESS_ADDRESS` (physical address for CAN-SPAM)
+  - [x]`CRON_SECRET` (all 4 cron jobs return 401 and never run without this)
+  - [x]`NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX` (activates GA4)
+  - [x]`NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` (contact form bot protection)
 
-### Domain & Hosting
+**Email**
 
-- [ ] **Confirm domain is pointing to Vercel** — DNS `A` / `CNAME` records correct; SSL certificate active
-- [ ] **Set all production env vars in Vercel** — go through the full `.env.local` and ensure every variable is set in the Vercel dashboard for the production environment
-- [ ] **Set `NEXT_PUBLIC_SITE_URL`** to `https://casa-cards.com` (not localhost) in Vercel production env vars
-- [ ] **Set `NEXTAUTH_URL`** to `https://casa-cards.com` in Vercel production env vars
+- [ ] Verify sending domain in Resend — add SPF, DKIM, DMARC DNS records for `casa-cards.com`
+- [ ] Add physical business mailing address to `BUSINESS_ADDRESS` env var (CAN-SPAM requirement)
+- [ ] Send a test email from production to confirm deliverability and branding
 
-### eBay
+**Admin & Security**
 
-- [ ] **Re-authorize eBay OAuth** after going live — the access token will need to be refreshed via the admin eBay sync page once production env vars are in place
-- [ ] **Confirm eBay RuName callback URL** is set to `https://casa-cards.com/api/ebay/callback` in the eBay developer portal
+- [ ] Create the production admin account: register with real email → set `role = 'ADMIN'` directly in Supabase
+- [ ] Disable or secure the bootstrap admin endpoint (`/api/admin/bootstrap`) — confirm it requires `ADMIN_BOOTSTRAP_SECRET`
+- [ ] Run `npm audit` — resolve any high/critical vulnerabilities before launch
 
-### Legal (Required Before Launch)
+**eBay**
 
-- [x] **Privacy Policy** — `/privacy` page live; discloses cookies, Stripe, Resend, Supabase, eBay
-- [x] **Terms & Conditions** — `/terms` page live
-- [x] **Return & Refund Policy** — `/returns` page live
-- [x] **Shipping Policy** — `/shipping` page live
-- [x] Confirm all legal pages are linked in the footer — footer updated with all policy links
+- [x] Add `EBAY_CLIENT_ID` + `EBAY_CLIENT_SECRET` to production env vars; run a full eBay sync from `/admin/ebay-sync` and verify products appear
+- [x] Confirm eBay RuName callback URL is set to `https://casa-cards.com/api/ebay/callback` in the eBay developer portal
 
-### Admin & Operations
+**Legal**
 
-- [ ] **Create the production admin account** — register with your real email and manually set `role = ADMIN` in the Supabase database
-- [ ] **Remove or disable the bootstrap admin endpoint** (`/api/admin/bootstrap`) after first admin is created — or confirm it requires `ADMIN_BOOTSTRAP_SECRET`
-- [ ] **Test a real end-to-end order** with a small amount to confirm Stripe live payments, order confirmation email, and admin dashboard all work
-- [ ] **Set a `CRON_SECRET`** env var in Vercel — all cron jobs require this header; without it they will return 401 and never run
+- [x] Privacy Policy — `/privacy` ✅
+- [x] Terms & Conditions — `/terms` ✅
+- [x] Return & Refund Policy — `/returns` ✅
+- [x] Shipping Policy — `/shipping` ✅
 
-### Nice-to-Have Before Launch
+### 🟡 Do Soon After Launch (High Priority)
 
-- [ ] Favicon and `/public/site.webmanifest` (web app icon for mobile home screens)
-- [ ] 404 and 500 branded error pages
-- [x] Google Analytics 4 component wired (`GoogleAnalytics.tsx` + `CookieConsent.tsx`) — **set `NEXT_PUBLIC_GA_MEASUREMENT_ID` in Vercel env vars to activate**
-- [ ] Google Search Console verified and sitemap submitted
+**SEO & Discovery**
 
-### SEO
+- [ ] Verify Google Search Console property (DNS TXT record or file upload)
+- [ ] Submit `https://casa-cards.com/sitemap.xml` to Google Search Console and Bing Webmaster Tools
+- [ ] Submit Google Shopping feed `https://casa-cards.com/feeds/google.xml` to Google Merchant Center
 
-- [ ] Submit the sitemap (`/sitemap.xml`) to Google Search Console and Bing Webmaster Tools after the site is live on the production domain
-- [x] **Lighthouse audit completed on production** (2026-03-23):
-  - Homepage: **99 Performance / 89 Accessibility / 100 Best Practices / 100 SEO**
-  - Product page: **100 Performance / 96 Accessibility / 100 Best Practices / 92 SEO**
-- [ ] Fix homepage accessibility score (89) — run Lighthouse and address flagged issues (likely hero section contrast or carousel labeling)
-- [ ] Fix product page SEO score (92) — verify unique meta descriptions are generated per product slug
-- [ ] Core web vitals verification — confirm CLS, LCP, FID all pass in Google Search Console after indexing
-- [ ] 10.6 Stripe task and activation
+**Lighthouse Fixes**
+
+- [ ] Re-run Lighthouse on homepage — fix accessibility score (currently 89; likely contrast or carousel label issue)
+- [ ] Re-run Lighthouse on a product page — fix SEO score (currently 92; likely meta description uniqueness)
+
+**Manual Verification**
+
+- [ ] Verify browser tab shows Casa Cards favicon (not grey globe)
+- [ ] Test 404: navigate to `/this-page-does-not-exist` — branded page renders
+- [ ] Test share buttons on a product page: Pinterest pre-fills image + title; X pre-fills title + URL
+- [ ] Complete a real end-to-end test order in production — confirm Stripe charge, webhook, order confirmation email, and admin dashboard all work
+
+### 🟢 Optional / Post-Launch
+
+- [ ] **Facebook & Instagram Shopping feed** (Task 11.4) — build `src/app/feeds/facebook.xml/route.ts` once Meta Business Manager account is active
+- [ ] **GA4 live verification** — once `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set, confirm real user appears in GA4 Realtime report
+- [ ] **Core Web Vitals** — verify CLS, LCP, INP pass green in Google Search Console after indexing
+- [ ] **Stripe Tax** — complete Task 10.6 if sales tax collection is required in your nexus states
+- [ ] **PayPal** — add as a second payment option if customers request it
+- [ ] **Guest checkout** — manual test: complete order without logging in → look up at `/orders/lookup`
+- [ ] **Real device testing** — iPhone (iOS Safari) + Android Chrome: checkout, cart drawer, account pages
+- [ ] **Cross-browser testing** — Chrome, Firefox, Safari, Edge (latest)
 
 ---
 
 _Document prepared for: Claude Code_
 _Project: Casa Cards & Collectibles E-Commerce Website_
+_Last updated: 2026-03-24 — Phases 1–11 complete. Phase 12 (QA/Launch) is next._
 _Security Level: Maximum — verify every phase before proceeding to the next._

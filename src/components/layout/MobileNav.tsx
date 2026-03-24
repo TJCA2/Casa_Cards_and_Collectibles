@@ -6,11 +6,12 @@ import { useSession } from "next-auth/react";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
-  { href: "/shop", label: "Shop" },
-  { href: "/category/baseball-cards", label: "Baseball Cards" },
-  { href: "/category/basketball-cards", label: "Basketball Cards" },
-  { href: "/category/football-cards", label: "Football Cards" },
+  { href: "/shop", label: "All Cards" },
+  { href: "/shop?sport=Baseball", label: "Baseball Cards" },
+  { href: "/shop?sport=Basketball", label: "Basketball Cards" },
+  { href: "/shop?sport=Football", label: "Football Cards" },
   { href: "/reviews", label: "Customer Reviews" },
+  { href: "/contact", label: "Contact" },
 ];
 
 export default function MobileNav() {

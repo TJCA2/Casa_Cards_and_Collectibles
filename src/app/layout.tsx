@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   },
   description:
     "Your source for sports cards & collectibles — baseball, basketball, football, and more.",
+  manifest: "/site.webmanifest",
+  other: {
+    "theme-color": "#000000",
+  },
 };
 
 export default function RootLayout({
