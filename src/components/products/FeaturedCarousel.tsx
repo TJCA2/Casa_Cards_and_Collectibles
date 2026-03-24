@@ -107,6 +107,7 @@ export default function FeaturedCarousel({ products }: { products: CarouselProdu
       if (!drag.current.active) return;
       e.preventDefault(); // always prevent browser scroll/gesture takeover
       const touch = e.touches[0];
+      if (!touch) return;
       const deltaX = touch.clientX - drag.current.startX;
       drag.current.moved = Math.abs(deltaX);
       let newPos = drag.current.startPos + deltaX;
