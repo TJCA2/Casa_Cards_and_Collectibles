@@ -78,6 +78,25 @@ export default function MobileNav() {
             </Link>
           ))}
 
+          {/* eBay store link */}
+          <a
+            href="https://www.ebay.com/usr/casa_cards_and_collectibles"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white"
+          >
+            <svg viewBox="0 0 300 120" className="h-4 w-auto" aria-hidden="true">
+              <text y="100" fontFamily="Arial Black, Arial" fontWeight="900" fontSize="120">
+                <tspan fill="#E53238">e</tspan>
+                <tspan fill="#0064D2">b</tspan>
+                <tspan fill="#F5AF02">a</tspan>
+                <tspan fill="#86B817">y</tspan>
+              </text>
+            </svg>
+            Visit eBay Store ↗
+          </a>
+
           {/* Account section */}
           <div className="mt-4 border-t border-white/10 pt-4">
             {session ? (
