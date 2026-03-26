@@ -564,7 +564,7 @@ export async function sendAdminReplyEmail({
 }): Promise<void> {
   await sendEmail({
     from: FROM,
-    reply_to: ADMIN_REPLY_TO,
+    replyTo: ADMIN_REPLY_TO,
     to: toEmail,
     subject: `Re: ${subject}`,
     html: emailHtml(`
@@ -578,6 +578,6 @@ export async function sendAdminReplyEmail({
         <p style="margin:0;white-space:pre-wrap">${originalBody}</p>
       </div>
     `),
-    text: `Hi ${toName},\n\n${replyText}\n\nBest regards,\nCasa Cards & Collectibles\n${SITE_URL}\n\n---\nOriginal message:\n${originalBody}`,
+    text: `Hi ${toName},\n\n${replyText}\n\nBest regards,\nCasa Cards & Collectibles\n\n---\nOriginal message:\n${originalBody}`,
   });
 }
