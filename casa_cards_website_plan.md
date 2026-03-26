@@ -15,7 +15,7 @@ Build a secure, full-featured e-commerce website for an eBay seller specializing
 - **Backend/API:** Next.js API Routes + Node.js
 - **Database:** PostgreSQL (via Supabase or Railway) — reliable, scalable
 - **Auth:** NextAuth.js with secure session handling
-- **Payments:** Stripe (primary) + PayPal SDK
+- **Payments:** PayPal
 - **Hosting:** Vercel (frontend) + Supabase (DB/storage)
 - **eBay Sync:** eBay REST API (Trading API / Inventory API)
 - **Email:** Resend or SendGrid (transactional)
@@ -415,24 +415,23 @@ _Goal: Build the public-facing storefront — shared layout shell, product grid,
 
 ## Phase 6 — Shopping Cart & Checkout
 
-_Goal: Secure, frictionless checkout with Stripe. No payment data ever touches our server._
+_Goal: Secure, frictionless checkout with PayPal. No payment data ever touches our server._
 
 **Prerequisites (must be done before starting):**
 
-- Add `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` to `.env.local` (get from [dashboard.stripe.com](https://dashboard.stripe.com) → Developers → API keys)
-- Install Stripe CLI locally (`brew install stripe/stripe-cli/stripe`) for local webhook testing
+- Add `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and `PAYPAL_WEBHOOK_ID` to `.env.local` (get from [developer.paypal.com](https://developer.paypal.com) → Apps & Credentials → Create App)
+- Use Sandbox credentials locally; swap for Live credentials in Vercel for production
 
 **Architecture notes:**
 
 - Cart/Order/Address Prisma models already exist from Phase 2 — no schema changes needed
 - `RESEND_API_KEY` and `EMAIL_FROM` are already configured — order confirmation emails are ready to wire up
-- PayPal deferred to Phase 8 (credentials not yet configured)
 - Real-time shipping rates (EasyPost) deferred to Phase 11 — using flat-rate options for MVP
-- Sales tax (TaxJar/Stripe Tax) deferred to Phase 11
+- Sales tax (TaxJar) deferred to Phase 11
 
 ### Task 6.1 — Cart State & UI
 
-- [x] Install packages: `npm install stripe @stripe/stripe-js @stripe/react-stripe-js`
+- [x] Install packages: `npm install @paypal/react-paypal-js`
 - [x] Update `src/proxy.ts` — added `cart` to `API_PATTERN` regex and `/api/cart/:path*` to middleware matcher
 - [x] Create `src/lib/cart.ts` — `CartItem` and `Cart` types; pure reducer functions (`addItem`, `removeItem`, `updateQty`, `clearCart`, `cartSubtotal`, `cartItemCount`); `loadCart`/`saveCart` localStorage helpers
 - [x] Create `src/context/CartContext.tsx` — `CartProvider` with `useReducer`; hydrates from `localStorage` on mount; persists on every change; exposes `cart`, `addToCart`, `removeFromCart`, `updateQuantity`, `clearCart`, `itemCount`, `subtotal`, `isOpen`, `openCart`, `closeCart`
@@ -469,10 +468,10 @@ _Goal: Secure, frictionless checkout with Stripe. No payment data ever touches o
 - [x] Added `customerEmail String?` to Order Prisma model; pushed schema change with `prisma db push`
 - [x] `src/lib/stripe.ts` — lazy-initialized Stripe singleton using `STRIPE_SECRET_KEY` and SDK API version `2026-02-25.clover`
 - [x] `sendOrderConfirmationEmail` added to `src/lib/email.ts` — HTML email with item table, address, totals via Resend
-- [x] `POST /api/checkout/create-intent` — Zod validated; re-fetches all product prices + stock from DB (never trusts client); calculates server-side subtotal, shipping, discount; generates order number `CC-YYYYMMDD-XXXX`; creates Stripe PaymentIntent; persists Address + Order (PENDING) + OrderItems + discount usedCount increment in one DB transaction; returns `{ clientSecret, orderNumber, total }`
-- [x] Step 3 Payment UI — `<Elements>` provider with red Stripe theme; `<PaymentElement>` handles card/Apple Pay/Google Pay/Link; `stripe.confirmPayment({ redirect: "if_required" })` so most card payments resolve in-place; navigates to `/checkout/success?order=<orderNumber>` on success
-- [x] `POST /api/webhooks/stripe` — reads raw body via `req.text()`; verifies signature with `constructEventAsync`; on `payment_intent.succeeded`: idempotency check (skip if PAID), stock decrement + status PAID in DB transaction, confirmation email via Resend (non-fatal if fails); on `payment_intent.payment_failed`: marks CANCELLED
-- [x] `next.config.ts` CSP updated — added `https://js.stripe.com` to `script-src`, `frame-src`, `font-src`; added `hooks.stripe.com`, `m.stripe.com`, `m.stripe.network` to `connect-src`; updated `Permissions-Policy` payment directive (required for `<PaymentElement>` iframe to render)
+- [x] `POST /api/checkout/create-paypal-order` — Zod validated; re-fetches all product prices + stock from DB (never trusts client); calculates server-side subtotal, shipping, discount; generates order number `CC-YYYYMMDD-XXXX`; creates PayPal Order via REST API; persists Address + Order (PENDING) + OrderItems + discount usedCount increment in one DB transaction; returns `{ paypalOrderId, orderNumber, total }`
+- [x] `POST /api/checkout/capture-paypal-order` — called after user approves in PayPal popup; captures the PayPal order; idempotency check (skip if PAID); stock decrement + status PAID in DB transaction; confirmation email via Resend (non-fatal if fails); returns `{ orderNumber }`
+- [x] Step 3 Payment UI — `<PayPalScriptProvider>` wraps entire form; `<PayPalButtons>` renders PayPal/card buttons; `createOrder` callback calls `create-paypal-order`; `onApprove` callback calls `capture-paypal-order`; navigates to `/checkout/success?order=<orderNumber>` on success
+- [x] `POST /api/webhooks/paypal` — verifies PayPal webhook signature; on `PAYMENT.CAPTURE.COMPLETED`: idempotency check, stock decrement + status PAID in DB transaction, confirmation email; on `PAYMENT.CAPTURE.DENIED/REVERSED`: marks PENDING order CANCELLED
 - [x] `src/app/checkout/success/page.tsx` — initial basic page (green checkmark + order number); enhanced to full detail page in Task 6.5
 
 ### Task 6.5 — Confirmation & Guest Order Lookup
@@ -488,13 +487,13 @@ _Goal: Secure, frictionless checkout with Stripe. No payment data ever touches o
 
 ### Phase 6 Verification
 
-- [x] Add Stripe test keys to `.env.local`, run `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
+- [x] Add PayPal Sandbox credentials to `.env.local`
 - [x] Add item to cart → open drawer → confirm item, qty, subtotal correct
-- [x] Proceed through full checkout with Stripe test card `4242 4242 4242 4242`
-- [x] Confirm webhook fires: order status → PAID, stock decremented, confirmation email received _(user confirmed email received)_
-- [x] Price tamper protection verified via code review — `create-intent` re-fetches all prices from DB, client values ignored
-- [x] Out-of-stock protection verified via code review — two-layer check: `cart/validate` + `create-intent` both re-check `stockQuantity`
-- [x] Discount validation verified via code review — server re-validates code independently in `create-intent`, never trusts client amount
+- [ ] Proceed through full checkout with PayPal Sandbox buyer account — confirm order reaches PAID status _(manual test pending with sandbox credentials)_
+- [ ] Confirm webhook fires: order status → PAID, stock decremented, confirmation email received _(manual test pending)_
+- [x] Price tamper protection verified via code review — `create-paypal-order` re-fetches all prices from DB, client values ignored
+- [x] Out-of-stock protection verified via code review — two-layer check: `cart/validate` + `create-paypal-order` both re-check `stockQuantity`
+- [x] Discount validation verified via code review — server re-validates code independently in `create-paypal-order`, never trusts client amount
 - [ ] Guest checkout: complete order without logging in → look up order at `/orders/lookup` _(manual test pending)_
 - [ ] Test duplicate webhook delivery (resend same event) — confirm order is fulfilled only once _(manual test pending)_
 
@@ -857,8 +856,8 @@ Run `npx prisma db push`. Add `offers` relation to `User` and `Product` models.
 - [x] Update `POST /api/checkout/create-intent` — if `offerToken` present in request body:
   - Re-validate token server-side (same checks as `GET /api/offers/token/[token]`) — never trust client price
   - Use `offerPrice` from DB for that product's line item; all other items use DB prices as usual
-  - Do NOT mark offer as PURCHASED here — wait for webhook confirmation
-- [x] Update `POST /api/webhooks/stripe` — on `payment_intent.succeeded`: if `offerToken` was stored on the Order (add `offerToken String?` field to `Order` model), find the Offer and set status `PURCHASED`
+  - Do NOT mark offer as PURCHASED here — wait for capture/webhook confirmation
+- [x] Update `POST /api/checkout/capture-paypal-order` + `POST /api/webhooks/paypal` — on successful capture: if `offerToken` was stored on the Order, find the Offer and set status `PURCHASED`
 - [x] Add `offerToken String?` field to `Order` model in Prisma schema; run `npx prisma db push`
 - [x] `GET /api/cron/expire-offers` — protected by `Authorization: Bearer CRON_SECRET`:
   - Sets status `EXPIRED` for: PENDING offers where `createdAt < now() - 72h`; ACCEPTED offers where `tokenExpiresAt < now()`
@@ -1162,7 +1161,7 @@ _Goal: Automated transactional emails and opt-in marketing._
 
 ### Task 9.1 — Transactional Emails (ALL REQUIRED)
 
-- [x] Order Confirmation — sent immediately after successful payment via Stripe webhook (`src/app/api/webhooks/stripe/route.ts`)
+- [x] Order Confirmation — sent immediately after successful payment capture (`src/app/api/checkout/capture-paypal-order/route.ts` + `src/app/api/webhooks/paypal/route.ts` as backup)
 - [x] Shipping Notification — sent when admin adds tracking number (`src/app/api/admin/orders/[orderNumber]/tracking/route.ts`)
 - [x] Delivery Confirmation — skipped (no carrier webhooks available)
 - [x] Password Reset — one-time link via `/api/auth/reset-password` (`sendPasswordResetEmail`)
@@ -1297,13 +1296,13 @@ _Goal: Maximize discoverability, ensure fast load times, and meet all legal requ
 
 ### Task 10.6 — Sales Tax
 
-- [ ] Enable **Stripe Tax** in the Stripe dashboard (Dashboard → Tax → Get started) — no code changes needed for basic setup; Stripe Tax automatically calculates tax based on shipping address during PaymentIntent creation
-- [ ] Update `POST /api/checkout/create-intent` — pass `automatic_tax: { enabled: true }` to `stripe.paymentIntents.create()`; update the PaymentIntent amount to exclude manually calculated tax (Stripe Tax computes it); retrieve the tax amount from `payment_intent.automatic_tax.amount_total` before creating the Order
-- [ ] Update `CheckoutForm.tsx` Step 2 sidebar — add "Sales Tax: Calculated at payment" placeholder; the Stripe `<PaymentElement>` will show the final tax-inclusive total in the Stripe UI
-- [ ] Update `Order` model: add `taxAmount Decimal? @db.Decimal(10,2)` field if not already present (check Phase 2 schema — it was planned but confirm it exists); run `npx prisma db push` if missing
-- [ ] Store `taxAmount` on the Order record when the webhook fires (`payment_intent.succeeded` → retrieve PaymentIntent → read `automatic_tax.amount_total`)
+- [ ] Determine nexus states (states where you are required to collect sales tax)
+- [ ] Sign up for **TaxJar** (taxjar.com) — recommended for automated sales tax calculation
+- [ ] Add `TAXJAR_API_KEY` to Vercel environment variables
+- [ ] Integrate TaxJar into `POST /api/checkout/create-paypal-order` — call TaxJar API with order address + line items to get tax amount; include it in the PayPal order `amount.breakdown.tax_total`
+- [ ] Update `Order` model: confirm `taxAmount` field exists (it does from Phase 2 schema); store the calculated tax on the Order record
 - [ ] Update order confirmation email and admin order detail page to show tax line item
-- [ ] _Note:_ Stripe Tax requires a registered business address. Set this in the Stripe dashboard under Business settings before enabling. You will also need to indicate which states you have nexus in.
+- [ ] _Note:_ Sales tax nexus rules vary by state. Consult a tax professional to determine your obligations before enabling.
 
 ### ✅ Phase 10 Verification
 
@@ -1494,7 +1493,7 @@ _These tasks should be scheduled and never neglected._
 - **Weekly:** Run `npm audit` and update dependencies with security patches
 - **Weekly:** Check eBay sync logs — investigate any FAILED or PARTIAL syncs
 - **Monthly:** Review Google Analytics — identify top/bottom performing products
-- **Monthly:** Rotate API keys and secrets (eBay, Stripe webhook secret)
+- **Monthly:** Rotate API keys and secrets (eBay, PayPal client secret)
 - **Monthly:** Test backup restoration — confirm DB backups are working
 - **Quarterly:** Full security review — OWASP scan, penetration test if budget allows
 - **Quarterly:** Review and update Privacy Policy and Terms as laws change
@@ -1520,14 +1519,10 @@ EBAY_CLIENT_ID=<eBay App Client ID>
 EBAY_CLIENT_SECRET=<eBay App Client Secret>
 EBAY_SYNC_SECRET=<strong random string for securing the sync endpoint>
 
-# Stripe
-STRIPE_SECRET_KEY=<sk_live_...>
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=<pk_live_...>
-STRIPE_WEBHOOK_SECRET=<whsec_...>
-
-# PayPal
-PAYPAL_CLIENT_ID=<PayPal App Client ID>
-PAYPAL_CLIENT_SECRET=<PayPal App Client Secret>
+# PayPal — get Live credentials from developer.paypal.com → Apps & Credentials
+NEXT_PUBLIC_PAYPAL_CLIENT_ID=<PayPal Live Client ID>
+PAYPAL_CLIENT_SECRET=<PayPal Live Client Secret>
+PAYPAL_WEBHOOK_ID=<from PayPal dashboard → Webhooks → your Live webhook ID>
 
 # Email (Resend)
 RESEND_API_KEY=<re_...>
@@ -1544,7 +1539,7 @@ EASYPOST_API_KEY=<...>
 # Analytics
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 
-# Tax (Stripe Tax or TaxJar)
+# Tax (TaxJar — optional)
 TAXJAR_API_KEY=<...>
 ```
 
@@ -1556,10 +1551,12 @@ TAXJAR_API_KEY=<...>
 
 **Payments**
 
-- [ ] Transfer Stripe account ownership to the business owner; swap in live `sk_live_` / `pk_live_` keys in Vercel
-- [ ] Re-register Stripe webhook in live mode: `https://casa-cards.com/api/webhooks/stripe`
-- [ ] Connect a bank account in Stripe for payouts; complete Stripe identity verification if prompted
-- [ ] Enable Stripe Tax (Task 10.6): Dashboard → Tax → Get started; update `POST /api/checkout/create-intent` with `automatic_tax: { enabled: true }`; store `taxAmount` on Order in webhook handler; update order email + admin order detail page to show tax line
+- [x] Create a PayPal Business account (or confirm existing one) at paypal.com/business
+- [ ] Create a Live app at developer.paypal.com → Apps & Credentials → Create App (select Live)
+- [ ] Add `NEXT_PUBLIC_PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` (Live) to Vercel environment variables
+- [ ] Register the Live PayPal webhook at developer.paypal.com → your Live app → Webhooks: URL `https://casa-cards.com/api/webhooks/paypal`, events: `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REVERSED`
+- [ ] Copy the Webhook ID into Vercel as `PAYPAL_WEBHOOK_ID`
+- [ ] Complete PayPal identity verification and connect a bank account for payouts (in PayPal Business settings)
 
 **Hosting & Environment** ✅
 
@@ -1570,7 +1567,7 @@ TAXJAR_API_KEY=<...>
   - [x]`NEXTAUTH_SECRET` (64-char random string)
   - [x]`DATABASE_URL` (Supabase production connection string)
   - [x]`EBAY_CLIENT_ID` + `EBAY_CLIENT_SECRET` + `EBAY_SYNC_SECRET`
-  - [ ]`STRIPE_SECRET_KEY` (live) + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (live) + `STRIPE_WEBHOOK_SECRET` (live)
+  - [ ]`NEXT_PUBLIC_PAYPAL_CLIENT_ID` (live) + `PAYPAL_CLIENT_SECRET` (live) + `PAYPAL_WEBHOOK_ID` (live)
   - [x]`RESEND_API_KEY` + `EMAIL_FROM=orders@casa-cards.com` + `BUSINESS_ADDRESS` (physical address for CAN-SPAM)
   - [x]`CRON_SECRET` (all 4 cron jobs return 401 and never run without this)
   - [x]`NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX` (activates GA4)
@@ -1584,7 +1581,7 @@ TAXJAR_API_KEY=<...>
 
 **Admin & Security**
 
-- [ ] Create the production admin account: register with real email → set `role = 'ADMIN'` directly in Supabase
+- [x] Create the production admin account: register with real email → set `role = 'ADMIN'` directly in Supabase
 - [ ] Disable or secure the bootstrap admin endpoint (`/api/admin/bootstrap`) — confirm it requires `ADMIN_BOOTSTRAP_SECRET`
 - [ ] Run `npm audit` — resolve any high/critical vulnerabilities before launch
 
@@ -1618,15 +1615,14 @@ TAXJAR_API_KEY=<...>
 - [ ] Verify browser tab shows Casa Cards favicon (not grey globe)
 - [ ] Test 404: navigate to `/this-page-does-not-exist` — branded page renders
 - [ ] Test share buttons on a product page: Pinterest pre-fills image + title; X pre-fills title + URL
-- [ ] Complete a real end-to-end test order in production — confirm Stripe charge, webhook, order confirmation email, and admin dashboard all work
+- [ ] Complete a real end-to-end test order in production — confirm PayPal charge, webhook, order confirmation email, and admin dashboard all work
 
 ### 🟢 Optional / Post-Launch
 
 - [ ] **Facebook & Instagram Shopping feed** (Task 11.4) — build `src/app/feeds/facebook.xml/route.ts` once Meta Business Manager account is active
 - [ ] **GA4 live verification** — once `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set, confirm real user appears in GA4 Realtime report
 - [ ] **Core Web Vitals** — verify CLS, LCP, INP pass green in Google Search Console after indexing
-- [ ] **Stripe Tax** — complete Task 10.6 if sales tax collection is required in your nexus states
-- [ ] **PayPal** — add as a second payment option if customers request it
+- [ ] **Sales Tax** — integrate TaxJar (Task 10.6) if sales tax collection is required in your nexus states
 - [ ] **Guest checkout** — manual test: complete order without logging in → look up at `/orders/lookup`
 - [ ] **Real device testing** — iPhone (iOS Safari) + Android Chrome: checkout, cart drawer, account pages
 - [ ] **Cross-browser testing** — Chrome, Firefox, Safari, Edge (latest)

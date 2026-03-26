@@ -1,13 +1,27 @@
 import { Resend } from "resend";
 
-const FROM = process.env.EMAIL_FROM ?? "orders@casa-cards.com";
+const RAW_FROM = process.env.EMAIL_FROM ?? "orders@casa-cards.com";
+const FROM = `Casa Cards & Collectibles <${RAW_FROM}>`;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://casa-cards.com";
+// Admin reply-to — customer replies go here (e.g. your Gmail)
+const ADMIN_REPLY_TO = process.env.ADMIN_REPLY_TO ?? RAW_FROM;
+// Logo must always point to the live domain — emails are opened externally so localhost never works
+const LOGO_URL = "https://casa-cards.com/image.png";
 // Add BUSINESS_ADDRESS to env vars before launch (required for CAN-SPAM compliance)
 const BUSINESS_ADDRESS =
   process.env.BUSINESS_ADDRESS ?? "Casa Cards &amp; Collectibles &bull; Pittsburgh, PA";
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
+}
+
+async function sendEmail(payload: Parameters<ReturnType<typeof getResend>["emails"]["send"]>[0]) {
+  const { data, error } = await getResend().emails.send(payload);
+  if (error) {
+    console.error("[email] Resend error:", error);
+    throw new Error(`Failed to send email: ${error.message}`);
+  }
+  return data;
 }
 
 // ── Template helpers ────────────────────────────────────────────────────────────
@@ -42,6 +56,7 @@ function emailHtml(body: string, unsubscribeUrl?: string): string {
           <!-- Header -->
           <tr>
             <td bgcolor="#111827" style="background-color:#111827;padding:24px 32px;text-align:center;border-radius:12px 12px 0 0">
+              <img src="${LOGO_URL}" alt="Casa Cards &amp; Collectibles" width="60" height="60" style="display:block;margin:0 auto 12px;border:0">
               <p style="margin:0;font-size:20px;font-weight:bold;color:#ffffff;letter-spacing:0.08em;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif">
                 Casa Cards &amp; Collectibles
               </p>
@@ -93,7 +108,7 @@ function emailHtml(body: string, unsubscribeUrl?: string): string {
 export async function sendVerificationEmail(email: string, token: string): Promise<void> {
   const url = `${SITE_URL}/api/auth/verify-email?token=${token}`;
 
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: email,
     subject: "Verify your Casa Cards account",
@@ -152,7 +167,7 @@ export async function sendOrderConfirmationEmail(data: OrderConfirmationData): P
     .map((i) => `  ${i.title} ×${i.quantity} — $${(i.unitPrice * i.quantity).toFixed(2)}`)
     .join("\n");
 
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: data.customerEmail,
     subject: `Order Confirmed — ${data.orderNumber}`,
@@ -186,7 +201,7 @@ export async function sendOrderConfirmationEmail(data: OrderConfirmationData): P
 export async function sendEmailChangeEmail(newEmail: string, token: string): Promise<void> {
   const url = `${SITE_URL}/api/account/verify-email-change?token=${token}`;
 
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: newEmail,
     subject: "Confirm your new email address — Casa Cards",
@@ -209,7 +224,7 @@ export interface ShippingNotificationData {
 }
 
 export async function sendShippingNotificationEmail(data: ShippingNotificationData): Promise<void> {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: data.customerEmail,
     subject: `Your order ${data.orderNumber} has shipped!`,
@@ -244,9 +259,9 @@ export async function sendOfferReceivedAdminEmail(data: OfferReceivedAdminData):
   const productUrl = `${SITE_URL}/product/${data.productId}`;
 
   // Admin notification — minimal template, no branded wrapper needed
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
-    to: FROM,
+    to: RAW_FROM,
     replyTo: data.customerEmail,
     subject: `[New Offer] ${data.productTitle} — $${data.offerPrice.toFixed(2)} (${pct}%)`,
     html: `
@@ -259,9 +274,22 @@ export async function sendOfferReceivedAdminEmail(data: OfferReceivedAdminData):
           <tr><td style="padding:6px 0;color:#6b7280">Customer</td><td style="padding:6px 0">${data.customerName} &lt;${data.customerEmail}&gt;</td></tr>
         </table>
         <a href="${SITE_URL}/admin/offers" style="display:inline-block;background:#dc2626;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Review Offer in Admin</a>
+
+        <div style="margin-top:32px;border-top:2px dashed #e5e7eb;padding-top:20px">
+          <p style="margin:0 0 8px;font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af">— Hit Reply to respond to ${data.customerName} —</p>
+          <div style="background:#f9fafb;border-left:3px solid #dc2626;padding:16px;border-radius:0 8px 8px 0;font-size:14px;color:#374151;white-space:pre-wrap">Hi ${data.customerName},
+
+Thank you for your offer on ${data.productTitle}.
+
+[Write your response here]
+
+Best regards,
+Casa Cards &amp; Collectibles
+${RAW_FROM} | ${SITE_URL}</div>
+        </div>
       </div>
     `,
-    text: `New Offer Received\n\nProduct: ${data.productTitle}\nAsking: $${data.askingPrice.toFixed(2)}\nOffer: $${data.offerPrice.toFixed(2)} (${pct}%)\nCustomer: ${data.customerName} <${data.customerEmail}>\n\nReview: ${SITE_URL}/admin/offers`,
+    text: `New Offer Received\n\nProduct: ${data.productTitle}\nAsking: $${data.askingPrice.toFixed(2)}\nOffer: $${data.offerPrice.toFixed(2)} (${pct}%)\nCustomer: ${data.customerName} <${data.customerEmail}>\n\nReview: ${SITE_URL}/admin/offers\n\n---\nHit Reply to respond to ${data.customerName}:\n\nHi ${data.customerName},\n\nThank you for your offer on ${data.productTitle}.\n\n[Write your response here]\n\nBest regards,\nCasa Cards & Collectibles\n${RAW_FROM} | ${SITE_URL}`,
   });
 }
 
@@ -271,7 +299,7 @@ export async function sendOfferConfirmationEmail(
   productTitle: string,
   offerPrice: number,
 ): Promise<void> {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: customerEmail,
     subject: `We received your offer on ${productTitle}`,
@@ -295,7 +323,7 @@ export async function sendOfferAcceptedEmail(
 ): Promise<void> {
   const checkoutUrl = `${SITE_URL}/checkout?offerToken=${purchaseToken}`;
 
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: customerEmail,
     subject: `Your offer on ${productTitle} was accepted!`,
@@ -317,7 +345,7 @@ export async function sendOfferDeclinedEmail(
   productTitle: string,
   adminNote?: string,
 ): Promise<void> {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: customerEmail,
     subject: `Update on your offer for ${productTitle}`,
@@ -348,9 +376,9 @@ export async function sendContactAdminEmail(data: ContactAdminEmailData): Promis
     ? `<tr><td style="padding:6px 0;color:#6b7280;width:80px">Product</td><td style="padding:6px 0"><a href="${SITE_URL}/product/${data.productId}">${data.productTitle ?? data.productId}</a></td></tr>`
     : "";
 
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
-    to: FROM,
+    to: RAW_FROM,
     replyTo: data.email,
     subject: `[New Message] ${data.subject} — from ${data.name}`,
     html: `
@@ -363,10 +391,22 @@ export async function sendContactAdminEmail(data: ContactAdminEmailData): Promis
         </table>
         <div style="background:#f9fafb;border-radius:8px;padding:16px;font-size:14px;color:#374151;white-space:pre-wrap">${data.body}</div>
         <p style="margin-top:20px"><a href="${SITE_URL}/admin/messages" style="display:inline-block;background:#dc2626;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold">View in Admin Inbox</a></p>
-        <p style="font-size:13px;color:#9ca3af">Hit Reply to respond directly to ${data.email}.</p>
+
+        <div style="margin-top:32px;border-top:2px dashed #e5e7eb;padding-top:20px">
+          <p style="margin:0 0 8px;font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af">— Hit Reply to respond to ${data.name} —</p>
+          <div style="background:#f9fafb;border-left:3px solid #dc2626;padding:16px;border-radius:0 8px 8px 0;font-size:14px;color:#374151;white-space:pre-wrap">Hi ${data.name},
+
+Thank you for reaching out to Casa Cards &amp; Collectibles.
+
+[Write your response here]
+
+Best regards,
+Casa Cards &amp; Collectibles
+${RAW_FROM} | ${SITE_URL}</div>
+        </div>
       </div>
     `,
-    text: `New Customer Message\n\nFrom: ${data.name} <${data.email}>\nSubject: ${data.subject}${data.productTitle ? `\nProduct: ${data.productTitle}` : ""}\n\n${data.body}\n\nReply to this email to respond directly.`,
+    text: `New Customer Message\n\nFrom: ${data.name} <${data.email}>\nSubject: ${data.subject}${data.productTitle ? `\nProduct: ${data.productTitle}` : ""}\n\n${data.body}\n\n---\nHit Reply to respond to ${data.name}:\n\nHi ${data.name},\n\nThank you for reaching out to Casa Cards & Collectibles.\n\n[Write your response here]\n\nBest regards,\nCasa Cards & Collectibles\n${RAW_FROM} | ${SITE_URL}`,
   });
 }
 
@@ -377,7 +417,7 @@ export async function sendContactAutoReplyEmail(
 ): Promise<void> {
   const excerpt = body.length > 300 ? body.slice(0, 297) + "…" : body;
 
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: customerEmail,
     subject: "We received your message — Casa Cards & Collectibles",
@@ -401,7 +441,7 @@ export interface ReviewRequestData {
 export async function sendReviewRequestEmail(data: ReviewRequestData): Promise<void> {
   const ebayFeedbackUrl = "https://www.ebay.com/usr/casa_cards_and_collectibles?_tab=feedback";
 
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: data.customerEmail,
     subject: "How was your order? Leave us a review!",
@@ -449,7 +489,7 @@ export async function sendAbandonedCartEmail(data: AbandonedCartData): Promise<v
     .map((i) => `  ${i.title} ×${i.quantity} — $${(i.price * i.quantity).toFixed(2)}`)
     .join("\n");
 
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: data.customerEmail,
     subject: "You left something behind!",
@@ -476,7 +516,7 @@ export async function sendAbandonedCartEmail(data: AbandonedCartData): Promise<v
 export async function sendNewsletterConfirmationEmail(email: string, token: string): Promise<void> {
   const url = `${SITE_URL}/api/newsletter/confirm?token=${token}`;
 
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: email,
     subject: "Confirm your Casa Cards newsletter subscription",
@@ -494,7 +534,7 @@ export async function sendNewsletterConfirmationEmail(email: string, token: stri
 export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
   const url = `${SITE_URL}/auth/reset-password?token=${token}`;
 
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to: email,
     subject: "Reset your Casa Cards password",
@@ -506,5 +546,38 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
       <p style="margin-top:24px;font-size:13px;color:#9ca3af">This link expires in 1 hour. If you didn&apos;t request a reset, you can safely ignore this email — your password won&apos;t change.</p>
     `),
     text: `Reset your password\n\nYou requested a password reset for your Casa Cards & Collectibles account.\n\nClick the link below to set a new password (expires in 1 hour):\n\n${url}\n\nIf you didn't request this, ignore this email.\n\n— Casa Cards & Collectibles`,
+  });
+}
+
+export async function sendAdminReplyEmail({
+  toName,
+  toEmail,
+  subject,
+  originalBody,
+  replyText,
+}: {
+  toName: string;
+  toEmail: string;
+  subject: string;
+  originalBody: string;
+  replyText: string;
+}): Promise<void> {
+  await sendEmail({
+    from: FROM,
+    reply_to: ADMIN_REPLY_TO,
+    to: toEmail,
+    subject: `Re: ${subject}`,
+    html: emailHtml(`
+      <h1 style="margin:0 0 20px;font-size:22px;font-weight:bold;color:#111827">Re: ${subject}</h1>
+      <p>Hi ${toName},</p>
+      <div style="white-space:pre-wrap;line-height:1.6">${replyText.replace(/\n/g, "<br>")}</div>
+      <p style="margin-top:28px">Best regards,<br><strong>Casa Cards &amp; Collectibles</strong></p>
+      <hr style="margin:32px 0;border:none;border-top:1px solid #e5e7eb">
+      <div style="font-size:12px;color:#9ca3af">
+        <p style="margin:0 0 4px;font-weight:600">Original message:</p>
+        <p style="margin:0;white-space:pre-wrap">${originalBody}</p>
+      </div>
+    `),
+    text: `Hi ${toName},\n\n${replyText}\n\nBest regards,\nCasa Cards & Collectibles\n${SITE_URL}\n\n---\nOriginal message:\n${originalBody}`,
   });
 }

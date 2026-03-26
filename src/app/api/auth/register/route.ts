@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   const passwordHash = await bcrypt.hash(password, 12);
 
   const user = await prisma.user.create({
-    data: { email, passwordHash, emailVerified: false },
+    data: { email, passwordHash, emailVerified: false, name },
   });
 
   // Generate verification token
@@ -51,9 +51,6 @@ export async function POST(request: NextRequest) {
   });
 
   await sendVerificationEmail(email, rawToken);
-
-  // name is validated but stored later when profile is built (Phase 4+)
-  void name;
 
   return NextResponse.json(SUCCESS_RESPONSE, { status: 201 });
 }

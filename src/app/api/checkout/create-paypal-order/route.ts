@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getStripe } from "@/lib/stripe";
+import { paypalRequest } from "@/lib/paypal";
 
 // ── Validation schema ──────────────────────────────────────────────────────────
 
@@ -138,7 +138,6 @@ export async function POST(req: NextRequest) {
 
   // ── 2. Calculate totals server-side ─────────────────────────────────────────
   const subtotal = items.reduce((sum, item) => {
-    // Use offer price for the offer item — never trust client price
     const price =
       offerRecord && item.productId === offerRecord.productId
         ? parseFloat(offerRecord.offerPrice.toString())
@@ -174,26 +173,51 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const totalAmount = Math.max(0, subtotal + shippingCost - discountAmount);
-  const amountCents = Math.round(totalAmount * 100);
+  const totalAmount = Math.max(0.5, subtotal + shippingCost - discountAmount);
 
-  if (amountCents < 50) {
-    return NextResponse.json({ error: "Order total is too low to process" }, { status: 400 });
-  }
-
-  // ── 4. Create Stripe PaymentIntent ───────────────────────────────────────────
+  // ── 4. Generate order number ─────────────────────────────────────────────────
   const orderNumber = generateOrderNumber();
-  const stripe = getStripe();
 
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: amountCents,
-    currency: "usd",
-    automatic_payment_methods: { enabled: true },
-    receipt_email: shippingInfo.email,
-    metadata: { orderNumber },
+  // ── 5. Create PayPal order ───────────────────────────────────────────────────
+  const paypalOrder = await paypalRequest<{ id: string }>("POST", "/v2/checkout/orders", {
+    intent: "CAPTURE",
+    purchase_units: [
+      {
+        reference_id: orderNumber,
+        amount: {
+          currency_code: "USD",
+          value: totalAmount.toFixed(2),
+          breakdown: {
+            item_total: {
+              currency_code: "USD",
+              value: subtotal.toFixed(2),
+            },
+            shipping: {
+              currency_code: "USD",
+              value: shippingCost.toFixed(2),
+            },
+            discount: {
+              currency_code: "USD",
+              value: discountAmount.toFixed(2),
+            },
+          },
+        },
+        shipping: {
+          name: { full_name: shippingInfo.name },
+          address: {
+            address_line_1: shippingInfo.line1,
+            ...(shippingInfo.line2 ? { address_line_2: shippingInfo.line2 } : {}),
+            admin_area_2: shippingInfo.city,
+            admin_area_1: shippingInfo.state,
+            postal_code: shippingInfo.zip,
+            country_code: shippingInfo.country,
+          },
+        },
+      },
+    ],
   });
 
-  // ── 5. Persist address + order in a transaction ──────────────────────────────
+  // ── 6. Persist address + order in a transaction ──────────────────────────────
   await prisma.$transaction(async (tx) => {
     const address = await tx.address.create({
       data: {
@@ -219,8 +243,8 @@ export async function POST(req: NextRequest) {
         shippingCost,
         taxAmount: 0,
         totalAmount,
-        paymentProvider: "STRIPE",
-        paymentIntentId: paymentIntent.id,
+        paymentProvider: "PAYPAL",
+        paymentIntentId: paypalOrder.id,
         shippingAddressId: address.id,
         billingAddressId: address.id,
         ...(discountCodeId ? { discountCode: discountCode!.toUpperCase(), discountAmount } : {}),
@@ -244,7 +268,6 @@ export async function POST(req: NextRequest) {
       }),
     });
 
-    // Increment discount code usage
     if (discountCodeId) {
       await tx.discountCode.update({
         where: { id: discountCodeId },
@@ -254,7 +277,7 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({
-    clientSecret: paymentIntent.client_secret,
+    paypalOrderId: paypalOrder.id,
     orderNumber,
     total: totalAmount,
   });

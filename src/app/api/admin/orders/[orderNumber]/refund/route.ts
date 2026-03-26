@@ -4,7 +4,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logAdminAction } from "@/lib/adminLog";
-import { getStripe } from "@/lib/stripe";
+import { paypalRequest } from "@/lib/paypal";
 
 const bodySchema = z.object({
   // amount in cents; omit for full refund
@@ -18,6 +18,18 @@ async function requireAdmin() {
 }
 
 type Params = { params: Promise<{ orderNumber: string }> };
+
+interface PayPalOrderDetails {
+  purchase_units?: Array<{
+    payments?: {
+      captures?: Array<{ id: string }>;
+    };
+  }>;
+}
+
+interface PayPalRefundResult {
+  id: string;
+}
 
 export async function POST(req: NextRequest, { params }: Params) {
   const session = await requireAdmin();
@@ -47,15 +59,15 @@ export async function POST(req: NextRequest, { params }: Params) {
   });
   if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
 
-  if (order.paymentProvider !== "STRIPE") {
+  if (order.paymentProvider !== "PAYPAL") {
     return NextResponse.json(
-      { error: "Refunds are only supported for Stripe payments." },
+      { error: "Refunds via this panel are only supported for PayPal payments." },
       { status: 400 },
     );
   }
 
   if (!order.paymentIntentId) {
-    return NextResponse.json({ error: "No payment intent ID on this order." }, { status: 400 });
+    return NextResponse.json({ error: "No payment ID on this order." }, { status: 400 });
   }
 
   const refundableStatuses = ["PAID", "PROCESSING", "SHIPPED", "DELIVERED"];
@@ -70,17 +82,34 @@ export async function POST(req: NextRequest, { params }: Params) {
   const totalCents = Math.round(Number(order.totalAmount) * 100);
   const isFullRefund = !amount || amount >= totalCents;
 
-  const stripe = getStripe();
-  const refund = await stripe.refunds.create({
-    payment_intent: order.paymentIntentId,
-    ...(isFullRefund ? {} : { amount }),
-  });
+  // Fetch the PayPal order to get the capture ID
+  const paypalOrder = await paypalRequest<PayPalOrderDetails>(
+    "GET",
+    `/v2/checkout/orders/${order.paymentIntentId}`,
+  );
+
+  const captureId = paypalOrder.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+  if (!captureId) {
+    return NextResponse.json(
+      { error: "Could not find PayPal capture ID. The payment may not have been captured yet." },
+      { status: 400 },
+    );
+  }
+
+  const refundBody = isFullRefund
+    ? {}
+    : { amount: { value: (amount! / 100).toFixed(2), currency_code: "USD" } };
+
+  const result = await paypalRequest<PayPalRefundResult>(
+    "POST",
+    `/v2/payments/captures/${captureId}/refund`,
+    refundBody,
+  );
 
   if (isFullRefund) {
     await prisma.order.update({ where: { orderNumber }, data: { status: "REFUNDED" } });
   } else {
-    // Add a note about the partial refund
-    const refundNote = `Partial refund issued: $${(amount! / 100).toFixed(2)} (Stripe refund ID: ${refund.id})`;
+    const refundNote = `Partial refund issued: $${(amount! / 100).toFixed(2)} (PayPal refund ID: ${result.id})`;
     const existingNotes = order.notes ?? "";
     const updatedNotes = existingNotes ? `${existingNotes}\n${refundNote}` : refundNote;
     await prisma.order.update({ where: { orderNumber }, data: { notes: updatedNotes } });
@@ -88,10 +117,10 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   await logAdminAction(session.user.id, "ISSUE_REFUND", "Order", order.id, {
     orderNumber,
-    refundId: refund.id,
+    refundId: result.id,
     amount: amount ?? totalCents,
     full: isFullRefund,
   });
 
-  return NextResponse.json({ refundId: refund.id, full: isFullRefund });
+  return NextResponse.json({ refundId: result.id, full: isFullRefund });
 }

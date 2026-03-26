@@ -291,9 +291,7 @@ export default async function OrderDetailPage({ params }: { params: Params }) {
 
         <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
           <h3 className="mb-2 text-sm font-semibold text-gray-900">Payment</h3>
-          <p className="text-sm text-gray-600">
-            {order.paymentProvider === "STRIPE" ? "Credit / Debit Card (Stripe)" : "PayPal"}
-          </p>
+          <p className="text-sm text-gray-600">{"PayPal"}</p>
           {order.shippedAt && (
             <p className="mt-2 text-sm text-gray-500">
               Shipped:{" "}

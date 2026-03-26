@@ -114,7 +114,7 @@ export default function TermsPage() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-gray-900">7. Payment</h2>
           <p>
-            Payments are processed securely through Stripe. We do not store your credit card number,
+            Payments are processed securely through PayPal. We do not store your credit card number,
             CVV, or full payment details on our servers. By placing an order, you authorize the
             charge to your selected payment method for the total amount shown at checkout.
           </p>

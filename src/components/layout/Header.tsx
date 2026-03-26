@@ -11,7 +11,7 @@ export default function Header() {
   const { data: session, status } = useSession();
 
   return (
-    <header className="sticky top-0 z-30 bg-black shadow-md">
+    <header className="sticky top-0 z-[200] bg-black shadow-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         {/* Left: mobile hamburger + logo */}
         <div className="flex items-center gap-3">

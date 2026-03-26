@@ -4,15 +4,15 @@ import type { NextConfig } from "next";
 // - Restrictive by default; expand specific directives as integrations are added
 // - 'self' covers same-origin resources
 // - 'unsafe-inline' on style-src is required for Tailwind until we add a nonce strategy
-// - script-src includes Stripe, Cloudflare Turnstile, and Google Tag Manager (GA4)
+// - script-src includes PayPal, Cloudflare Turnstile, and Google Tag Manager (GA4)
 const ContentSecurityPolicy = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://challenges.cloudflare.com https://www.googletagmanager.com;
-  style-src 'self' 'unsafe-inline';
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.paypal.com https://www.paypalobjects.com https://challenges.cloudflare.com https://www.googletagmanager.com;
+  style-src 'self' 'unsafe-inline' https://www.paypalobjects.com;
   img-src 'self' data: blob: https:;
-  font-src 'self' https://js.stripe.com;
-  frame-src https://js.stripe.com https://challenges.cloudflare.com;
-  connect-src 'self' https://api.stripe.com https://hooks.stripe.com https://m.stripe.com https://m.stripe.network https://challenges.cloudflare.com https://www.google-analytics.com https://www.googletagmanager.com;
+  font-src 'self' https://www.paypalobjects.com;
+  frame-src https://www.paypal.com https://www.sandbox.paypal.com https://challenges.cloudflare.com;
+  connect-src 'self' https://www.paypal.com https://www.sandbox.paypal.com https://api.paypal.com https://api.sandbox.paypal.com https://challenges.cloudflare.com https://www.google-analytics.com https://www.googletagmanager.com;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
@@ -49,7 +49,7 @@ const securityHeaders = [
   {
     key: "Permissions-Policy",
     value:
-      'camera=(), microphone=(), geolocation=(), payment=(self "https://js.stripe.com"), usb=()',
+      'camera=(), microphone=(), geolocation=(), payment=(self "https://www.paypal.com"), usb=()',
   },
   // ── Content Security Policy ────────────────────────────────────────────────
   {

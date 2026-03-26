@@ -42,7 +42,7 @@ export default function PrivacyPage() {
               history
             </li>
             <li>
-              <strong>Payment information</strong> — payment is processed entirely by Stripe. We
+              <strong>Payment information</strong> — payment is processed entirely by PayPal. We
               never see, receive, or store your card number, CVV, or full payment details.
             </li>
             <li>
@@ -101,15 +101,15 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-disc space-y-2 pl-6">
             <li>
-              <strong>Stripe</strong> — payment processing. Stripe securely handles all payment card
-              data and is PCI-DSS Level 1 compliant.{" "}
+              <strong>PayPal</strong> — payment processing. PayPal securely handles all payment data
+              and is PCI-DSS compliant.{" "}
               <a
-                href="https://stripe.com/privacy"
+                href="https://www.paypal.com/us/legalhub/privacy-full"
                 className="text-red-600 underline"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                stripe.com/privacy
+                paypal.com/privacy
               </a>
             </li>
             <li>
@@ -309,7 +309,7 @@ export default function PrivacyPage() {
           <ul className="list-disc space-y-1.5 pl-6">
             <li>HTTPS encryption for all data in transit</li>
             <li>Passwords stored as bcrypt hashes (never in plaintext)</li>
-            <li>Payment card data handled exclusively by Stripe (PCI-DSS Level 1 compliant)</li>
+            <li>Payment data handled exclusively by PayPal (PCI-DSS compliant)</li>
             <li>Database access restricted to server-side code only</li>
             <li>Rate limiting on authentication and sensitive API endpoints</li>
           </ul>

@@ -96,7 +96,6 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
 
   const providerOptions: { label: string; val: string }[] = [
     { label: "All Providers", val: "" },
-    { label: "Stripe", val: "STRIPE" },
     { label: "PayPal", val: "PAYPAL" },
   ];
 

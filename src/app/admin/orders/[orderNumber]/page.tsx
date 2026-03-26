@@ -46,9 +46,9 @@ export default async function AdminOrderDetailPage({ params }: Params) {
   const customerName = order.user?.name ?? "Guest";
   const customerEmail = order.user?.email ?? order.customerEmail ?? "—";
   const totalAmount = Number(order.totalAmount);
-  const isStripe = order.paymentProvider === "STRIPE";
+  const isPayPal = order.paymentProvider === "PAYPAL";
   const refundableStatuses = ["PAID", "PROCESSING", "SHIPPED", "DELIVERED"];
-  const canRefund = isStripe && refundableStatuses.includes(order.status);
+  const canRefund = isPayPal && refundableStatuses.includes(order.status);
 
   function formatAddr(a: Address) {
     return [a.name, a.line1, a.line2, `${a.city}, ${a.state} ${a.zip}`, a.country]

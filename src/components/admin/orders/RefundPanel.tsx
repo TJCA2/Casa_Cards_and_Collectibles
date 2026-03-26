@@ -105,7 +105,7 @@ export default function RefundPanel({
           disabled={isPending}
           className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
         >
-          {isPending ? "Processing…" : "Issue Refund via Stripe"}
+          {isPending ? "Processing…" : "Issue Refund via PayPal"}
         </button>
       </form>
 

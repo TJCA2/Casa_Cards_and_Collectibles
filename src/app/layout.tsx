@@ -28,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="scroll-pt-20">
       <body className="flex min-h-screen flex-col bg-white text-gray-900 antialiased">
         <GoogleAnalytics />
         <Providers>

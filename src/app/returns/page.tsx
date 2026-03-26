@@ -96,7 +96,7 @@ export default function ReturnsPage() {
           <h2 className="text-xl font-semibold text-gray-900">5. Refund Processing</h2>
           <p>
             If a refund is approved, it will be issued to your original payment method within
-            5&ndash;10 business days. Refunds are processed through Stripe and the time to appear on
+            5&ndash;10 business days. Refunds are processed through PayPal and the time to appear on
             your statement may vary by bank or card issuer.
           </p>
         </section>

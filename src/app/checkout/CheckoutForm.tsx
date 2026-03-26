@@ -3,11 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useCart } from "@/context/CartContext";
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -195,76 +192,11 @@ function StepIndicator({ current }: { current: number }) {
   );
 }
 
-// ── Payment step (must be inside <Elements>) ───────────────────────────────────
-
-function PaymentStep({
-  orderNumber,
-  total,
-  onBack,
-}: {
-  orderNumber: string;
-  total: number;
-  onBack: () => void;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const router = useRouter();
-  const [paying, setPaying] = useState(false);
-  const [payError, setPayError] = useState("");
-
-  async function handlePay() {
-    if (!stripe || !elements) return;
-    setPaying(true);
-    setPayError("");
-
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/checkout/success?order=${orderNumber}`,
-      },
-      redirect: "if_required",
-    });
-
-    if (error) {
-      setPayError(error.message ?? "Payment failed. Please try again.");
-      setPaying(false);
-    } else {
-      // Payment succeeded without redirect (most cards)
-      router.push(`/checkout/success?order=${orderNumber}`);
-    }
-  }
-
-  return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-gray-100 p-6">
-        <h2 className="mb-5 text-base font-semibold text-gray-900">Payment</h2>
-        <PaymentElement />
-        {payError && <p className="mt-3 text-sm text-red-600">{payError}</p>}
-      </div>
-      <div className="flex gap-3">
-        <button
-          onClick={onBack}
-          disabled={paying}
-          className="rounded-lg border border-gray-200 px-5 py-3 text-sm font-medium text-gray-700 hover:border-gray-300 disabled:opacity-50"
-        >
-          ← Back
-        </button>
-        <button
-          onClick={handlePay}
-          disabled={paying || !stripe || !elements}
-          className="flex-1 rounded-lg bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
-        >
-          {paying ? "Processing…" : `Pay $${total.toFixed(2)}`}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress, offerToken }: Props) {
-  const { cart, itemCount, subtotal: cartSubtotal } = useCart();
+  const { cart, itemCount, subtotal: cartSubtotal, clearCart } = useCart();
+  const router = useRouter();
 
   // ── Offer token mode ─────────────────────────────────────────────────────────
   const [offerProduct, setOfferProduct] = useState<OfferProductData | null>(null);
@@ -288,7 +220,6 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress, of
       .finally(() => setOfferLoading(false));
   }, [offerToken]);
 
-  // In offer mode the "cart" is just the single offer item
   const isOfferMode = !!offerToken && !!offerProduct && offerPrice !== null;
   const subtotal = isOfferMode ? offerPrice! : cartSubtotal;
   const effectiveItemCount = isOfferMode ? 1 : itemCount;
@@ -296,7 +227,7 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress, of
   // Step state
   const [step, setStep] = useState(1);
 
-  // Step 1 — shipping address (pre-fill from saved default address if available)
+  // Step 1 — shipping address
   const [shipping, setShipping] = useState<ShippingInfo>({
     ...INITIAL_SHIPPING,
     email: userEmail ?? "",
@@ -321,11 +252,8 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress, of
   const [discountError, setDiscountError] = useState("");
   const [applyingDiscount, setApplyingDiscount] = useState(false);
 
-  // Step 3 — payment
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [orderNumber, setOrderNumber] = useState<string | null>(null);
-  const [intentError, setIntentError] = useState("");
-  const [creatingIntent, setCreatingIntent] = useState(false);
+  // Step 3 — PayPal
+  const [paypalError, setPaypalError] = useState("");
 
   // ── Derived totals ───────────────────────────────────────────────────────────
   const freeShipping = subtotal >= FREE_THRESHOLD;
@@ -462,477 +390,513 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress, of
     }
   }
 
-  // ── Advance to payment (calls create-intent) ─────────────────────────────────
-  async function advanceToPayment() {
+  // ── Advance to payment step ──────────────────────────────────────────────────
+  function advanceToPayment() {
     if (!shippingMethod) {
       setDeliveryError("Please select a delivery method");
       return;
     }
     setDeliveryError("");
-    setCreatingIntent(true);
-    setIntentError("");
-    try {
-      const items = isOfferMode
-        ? [{ productId: offerProduct!.id, quantity: 1 }]
-        : cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity }));
-
-      const res = await fetch("/api/checkout/create-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items,
-          shippingInfo: shipping,
-          shippingMethod,
-          ...(discount ? { discountCode: discount.code } : {}),
-          ...(isOfferMode ? { offerToken } : {}),
-        }),
-      });
-      const data = (await res.json()) as {
-        clientSecret?: string;
-        orderNumber?: string;
-        total?: number;
-        error?: string;
-      };
-      if (!res.ok || data.error) {
-        setIntentError(data.error ?? "Could not create payment. Please try again.");
-        return;
-      }
-      setClientSecret(data.clientSecret!);
-      setOrderNumber(data.orderNumber!);
-      setStep(3);
-    } catch {
-      setIntentError("Network error. Please try again.");
-    } finally {
-      setCreatingIntent(false);
-    }
+    setPaypalError("");
+    setStep(3);
+    setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
   }
 
   // ── Layout ───────────────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Checkout</h1>
+    <PayPalScriptProvider
+      options={{
+        clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!,
+        currency: "USD",
+        intent: "capture",
+      }}
+    >
+      <div className="mx-auto max-w-5xl px-4 py-10">
+        <h1 className="mb-6 text-2xl font-bold text-gray-900">Checkout</h1>
 
-      {/* Offer price banner */}
-      {isOfferMode && (
-        <div className="mb-6 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
-          <svg
-            className="h-5 w-5 flex-shrink-0 text-green-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <p className="text-sm font-medium text-green-800">
-            Offer Price Applied: <span className="font-bold">${offerPrice!.toFixed(2)}</span> for{" "}
-            <span className="font-bold">{offerProduct!.title}</span>
-          </p>
-        </div>
-      )}
+        {/* Offer price banner */}
+        {isOfferMode && (
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+            <svg
+              className="h-5 w-5 flex-shrink-0 text-green-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <p className="text-sm font-medium text-green-800">
+              Offer Price Applied: <span className="font-bold">${offerPrice!.toFixed(2)}</span> for{" "}
+              <span className="font-bold">{offerProduct!.title}</span>
+            </p>
+          </div>
+        )}
 
-      <StepIndicator current={step} />
+        <StepIndicator current={step} />
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        {/* ── Left: step content ─────────────────────────────────────────────── */}
-        <div className="lg:col-span-2">
-          {/* Step 1 — Shipping address */}
-          {step === 1 && (
-            <div className="rounded-2xl border border-gray-100 p-6">
-              <h2 className="mb-5 text-base font-semibold text-gray-900">
-                Contact & Shipping Address
-              </h2>
-              <div className="space-y-4">
-                {/* Email */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Email address <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    readOnly={isLoggedIn}
-                    placeholder="you@example.com"
-                    className={`w-full rounded-lg border px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${
-                      isLoggedIn ? "bg-gray-50 text-gray-500" : "border-gray-200"
-                    } ${errors.email ? "border-red-400" : ""}`}
-                    {...field("email")}
-                    onBlur={(e) => {
-                      const email = e.target.value.trim();
-                      if (
-                        !email ||
-                        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-                        cart.items.length === 0
-                      )
-                        return;
-                      fetch("/api/cart/abandon", {
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          {/* ── Left: step content ─────────────────────────────────────────────── */}
+          <div className="lg:col-span-2">
+            {/* Step 1 — Shipping address */}
+            {step === 1 && (
+              <div className="rounded-2xl border border-gray-100 p-6">
+                <h2 className="mb-5 text-base font-semibold text-gray-900">
+                  Contact & Shipping Address
+                </h2>
+                <div className="space-y-4">
+                  {/* Email */}
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Email address <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      readOnly={isLoggedIn}
+                      placeholder="you@example.com"
+                      className={`w-full rounded-lg border px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${
+                        isLoggedIn ? "bg-gray-50 text-gray-500" : "border-gray-200"
+                      } ${errors.email ? "border-red-400" : ""}`}
+                      {...field("email")}
+                      onBlur={(e) => {
+                        const email = e.target.value.trim();
+                        if (
+                          !email ||
+                          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+                          cart.items.length === 0
+                        )
+                          return;
+                        fetch("/api/cart/abandon", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            email,
+                            items: cart.items.map((i) => ({
+                              productId: i.productId,
+                              title: i.title,
+                              quantity: i.quantity,
+                              price: i.price,
+                              imageUrl: i.imageUrl,
+                            })),
+                            subtotal: cartSubtotal,
+                          }),
+                        }).catch(() => {});
+                      }}
+                    />
+                    {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+                  </div>
+
+                  {/* Full name */}
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Full name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      autoComplete="name"
+                      placeholder="Jane Smith"
+                      className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${errors.name ? "border-red-400" : ""}`}
+                      {...field("name")}
+                    />
+                    {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
+                  </div>
+
+                  {/* Address line 1 */}
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Address <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      autoComplete="address-line1"
+                      placeholder="123 Main St"
+                      className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${errors.line1 ? "border-red-400" : ""}`}
+                      {...field("line1")}
+                    />
+                    {errors.line1 && <p className="mt-1 text-xs text-red-600">{errors.line1}</p>}
+                  </div>
+
+                  {/* Address line 2 */}
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Apartment, suite, etc.{" "}
+                      <span className="font-normal text-gray-400">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      autoComplete="address-line2"
+                      placeholder="Apt 4B"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none"
+                      {...field("line2")}
+                    />
+                  </div>
+
+                  {/* City / State / ZIP */}
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        City <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        autoComplete="address-level2"
+                        placeholder="New York"
+                        className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${errors.city ? "border-red-400" : ""}`}
+                        {...field("city")}
+                      />
+                      {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        State <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        autoComplete="address-level1"
+                        className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${errors.state ? "border-red-400" : ""}`}
+                        value={shipping.state}
+                        onChange={(e) => setShipping((s) => ({ ...s, state: e.target.value }))}
+                      >
+                        <option value="">—</option>
+                        {US_STATES.map(([code, name]) => (
+                          <option key={code} value={code}>
+                            {code} — {name}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.state && <p className="mt-1 text-xs text-red-600">{errors.state}</p>}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        ZIP <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        autoComplete="postal-code"
+                        placeholder="10001"
+                        maxLength={5}
+                        className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${errors.zip ? "border-red-400" : ""}`}
+                        {...field("zip")}
+                      />
+                      {errors.zip && <p className="mt-1 text-xs text-red-600">{errors.zip}</p>}
+                    </div>
+                  </div>
+
+                  {/* Country */}
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Country</label>
+                    <input
+                      readOnly
+                      value="United States"
+                      className="w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-sm text-gray-500"
+                    />
+                  </div>
+
+                  {/* Save address */}
+                  {isLoggedIn && (
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={shipping.saveAddress}
+                        onChange={(e) =>
+                          setShipping((s) => ({ ...s, saveAddress: e.target.checked }))
+                        }
+                        className="h-4 w-4 rounded border-gray-300 accent-red-600"
+                      />
+                      <span className="text-sm text-gray-700">Save this address to my account</span>
+                    </label>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (validateShipping()) setStep(2);
+                  }}
+                  className="mt-6 w-full rounded-lg bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700"
+                >
+                  Continue to Delivery →
+                </button>
+              </div>
+            )}
+
+            {/* Step 2 — Delivery method & discount */}
+            {step === 2 && (
+              <div className="space-y-5">
+                <div className="rounded-2xl border border-gray-100 p-6">
+                  <h2 className="mb-5 text-base font-semibold text-gray-900">Delivery Method</h2>
+
+                  {freeShipping && (
+                    <div className="mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+                      🎉 Your order qualifies for free shipping!
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    {SHIPPING_OPTIONS.map((opt) => {
+                      const effectivePrice = freeShipping ? 0 : opt.price;
+                      return (
+                        <label
+                          key={opt.id}
+                          className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition ${
+                            shippingMethod === opt.id
+                              ? "border-red-600 bg-red-50"
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="shippingMethod"
+                              value={opt.id}
+                              checked={shippingMethod === opt.id}
+                              onChange={() => setShippingMethod(opt.id)}
+                              className="accent-red-600"
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{opt.label}</p>
+                              <p className="text-xs text-gray-500">{opt.description}</p>
+                            </div>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {effectivePrice === 0 ? (
+                              <span className="text-green-600">Free</span>
+                            ) : (
+                              `$${effectivePrice.toFixed(2)}`
+                            )}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {deliveryError && <p className="mt-2 text-xs text-red-600">{deliveryError}</p>}
+                </div>
+
+                {/* Discount code */}
+                <div className="rounded-2xl border border-gray-100 p-6">
+                  <h2 className="mb-4 text-base font-semibold text-gray-900">Discount Code</h2>
+                  {discount ? (
+                    <div className="flex items-center justify-between rounded-lg bg-green-50 px-4 py-3">
+                      <span className="text-sm font-medium text-green-700">
+                        <span className="font-bold">{discount.code}</span> — −$
+                        {discount.amount.toFixed(2)} off
+                      </span>
+                      <button
+                        onClick={() => {
+                          setDiscount(null);
+                          setDiscountInput("");
+                        }}
+                        className="text-xs text-gray-400 hover:text-red-600"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={discountInput}
+                        onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") applyDiscount();
+                        }}
+                        placeholder="Enter code"
+                        maxLength={50}
+                        className="flex-1 rounded-lg border border-gray-200 px-3 py-2.5 text-sm uppercase tracking-wide focus:border-red-400 focus:outline-none"
+                      />
+                      <button
+                        onClick={applyDiscount}
+                        disabled={applyingDiscount || !discountInput.trim()}
+                        className="rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-50"
+                      >
+                        {applyingDiscount ? "…" : "Apply"}
+                      </button>
+                    </div>
+                  )}
+                  {discountError && <p className="mt-2 text-xs text-red-600">{discountError}</p>}
+                </div>
+
+                {/* Navigation */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setStep(1)}
+                    className="rounded-lg border border-gray-200 px-5 py-3 text-sm font-medium text-gray-700 hover:border-gray-300"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    onClick={advanceToPayment}
+                    className="flex-1 rounded-lg bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700"
+                  >
+                    Continue to Payment →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3 — PayPal payment */}
+            {step === 3 && (
+              <div className="scroll-mt-20 space-y-5">
+                <div className="rounded-2xl border border-gray-100 p-6">
+                  <h2 className="mb-2 text-base font-semibold text-gray-900">Payment</h2>
+                  <p className="mb-5 text-sm text-gray-500">
+                    Complete your purchase securely via PayPal. You can pay with your PayPal
+                    balance, bank account, or any major credit or debit card.
+                  </p>
+
+                  <PayPalButtons
+                    style={{ layout: "vertical", color: "gold", shape: "rect", label: "pay" }}
+                    createOrder={async () => {
+                      setPaypalError("");
+                      const items = isOfferMode
+                        ? [{ productId: offerProduct!.id, quantity: 1 }]
+                        : cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity }));
+
+                      const res = await fetch("/api/checkout/create-paypal-order", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                          email,
-                          items: cart.items.map((i) => ({
-                            productId: i.productId,
-                            title: i.title,
-                            quantity: i.quantity,
-                            price: i.price,
-                            imageUrl: i.imageUrl,
-                          })),
-                          subtotal: cartSubtotal,
+                          items,
+                          shippingInfo: shipping,
+                          shippingMethod,
+                          ...(discount ? { discountCode: discount.code } : {}),
+                          ...(isOfferMode ? { offerToken } : {}),
                         }),
-                      }).catch(() => {});
+                      });
+                      const data = (await res.json()) as {
+                        paypalOrderId?: string;
+                        error?: string;
+                      };
+                      if (!res.ok || !data.paypalOrderId) {
+                        throw new Error(data.error ?? "Could not create order. Please try again.");
+                      }
+                      return data.paypalOrderId;
+                    }}
+                    onApprove={async (data) => {
+                      setPaypalError("");
+                      const res = await fetch("/api/checkout/capture-paypal-order", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ paypalOrderId: data.orderID }),
+                      });
+                      const result = (await res.json()) as {
+                        orderNumber?: string;
+                        error?: string;
+                      };
+                      if (!res.ok || !result.orderNumber) {
+                        setPaypalError(result.error ?? "Payment capture failed. Please try again.");
+                        return;
+                      }
+                      clearCart();
+                      router.push(`/checkout/success?order=${result.orderNumber}`);
+                    }}
+                    onError={(err) => {
+                      console.error("[PayPal]", err);
+                      setPaypalError("PayPal encountered an error. Please try again.");
+                    }}
+                    onCancel={() => {
+                      setPaypalError("Payment was cancelled. You can try again when ready.");
                     }}
                   />
-                  {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+
+                  {paypalError && <p className="mt-3 text-sm text-red-600">{paypalError}</p>}
                 </div>
 
-                {/* Full name */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Full name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    autoComplete="name"
-                    placeholder="Jane Smith"
-                    className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${errors.name ? "border-red-400" : ""}`}
-                    {...field("name")}
-                  />
-                  {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
-                </div>
-
-                {/* Address line 1 */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Address <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    autoComplete="address-line1"
-                    placeholder="123 Main St"
-                    className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${errors.line1 ? "border-red-400" : ""}`}
-                    {...field("line1")}
-                  />
-                  {errors.line1 && <p className="mt-1 text-xs text-red-600">{errors.line1}</p>}
-                </div>
-
-                {/* Address line 2 */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Apartment, suite, etc.{" "}
-                    <span className="font-normal text-gray-400">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    autoComplete="address-line2"
-                    placeholder="Apt 4B"
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none"
-                    {...field("line2")}
-                  />
-                </div>
-
-                {/* City / State / ZIP */}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <div className="col-span-2 sm:col-span-1">
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      City <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      autoComplete="address-level2"
-                      placeholder="New York"
-                      className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${errors.city ? "border-red-400" : ""}`}
-                      {...field("city")}
-                    />
-                    {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      State <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      autoComplete="address-level1"
-                      className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${errors.state ? "border-red-400" : ""}`}
-                      value={shipping.state}
-                      onChange={(e) => setShipping((s) => ({ ...s, state: e.target.value }))}
-                    >
-                      <option value="">—</option>
-                      {US_STATES.map(([code, name]) => (
-                        <option key={code} value={code}>
-                          {code} — {name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.state && <p className="mt-1 text-xs text-red-600">{errors.state}</p>}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      ZIP <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      autoComplete="postal-code"
-                      placeholder="10001"
-                      maxLength={5}
-                      className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-red-400 focus:outline-none ${errors.zip ? "border-red-400" : ""}`}
-                      {...field("zip")}
-                    />
-                    {errors.zip && <p className="mt-1 text-xs text-red-600">{errors.zip}</p>}
-                  </div>
-                </div>
-
-                {/* Country */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Country</label>
-                  <input
-                    readOnly
-                    value="United States"
-                    className="w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-sm text-gray-500"
-                  />
-                </div>
-
-                {/* Save address */}
-                {isLoggedIn && (
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={shipping.saveAddress}
-                      onChange={(e) =>
-                        setShipping((s) => ({ ...s, saveAddress: e.target.checked }))
-                      }
-                      className="h-4 w-4 rounded border-gray-300 accent-red-600"
-                    />
-                    <span className="text-sm text-gray-700">Save this address to my account</span>
-                  </label>
-                )}
-              </div>
-
-              <button
-                onClick={() => {
-                  if (validateShipping()) setStep(2);
-                }}
-                className="mt-6 w-full rounded-lg bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700"
-              >
-                Continue to Delivery →
-              </button>
-            </div>
-          )}
-
-          {/* Step 2 — Delivery method & discount */}
-          {step === 2 && (
-            <div className="space-y-5">
-              <div className="rounded-2xl border border-gray-100 p-6">
-                <h2 className="mb-5 text-base font-semibold text-gray-900">Delivery Method</h2>
-
-                {freeShipping && (
-                  <div className="mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                    🎉 Your order qualifies for free shipping!
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  {SHIPPING_OPTIONS.map((opt) => {
-                    const effectivePrice = freeShipping ? 0 : opt.price;
-                    return (
-                      <label
-                        key={opt.id}
-                        className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition ${
-                          shippingMethod === opt.id
-                            ? "border-red-600 bg-red-50"
-                            : "border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="radio"
-                            name="shippingMethod"
-                            value={opt.id}
-                            checked={shippingMethod === opt.id}
-                            onChange={() => setShippingMethod(opt.id)}
-                            className="accent-red-600"
-                          />
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{opt.label}</p>
-                            <p className="text-xs text-gray-500">{opt.description}</p>
-                          </div>
-                        </div>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {effectivePrice === 0 ? (
-                            <span className="text-green-600">Free</span>
-                          ) : (
-                            `$${effectivePrice.toFixed(2)}`
-                          )}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-
-                {deliveryError && <p className="mt-2 text-xs text-red-600">{deliveryError}</p>}
-              </div>
-
-              {/* Discount code */}
-              <div className="rounded-2xl border border-gray-100 p-6">
-                <h2 className="mb-4 text-base font-semibold text-gray-900">Discount Code</h2>
-                {discount ? (
-                  <div className="flex items-center justify-between rounded-lg bg-green-50 px-4 py-3">
-                    <span className="text-sm font-medium text-green-700">
-                      <span className="font-bold">{discount.code}</span> — −$
-                      {discount.amount.toFixed(2)} off
-                    </span>
-                    <button
-                      onClick={() => {
-                        setDiscount(null);
-                        setDiscountInput("");
-                      }}
-                      className="text-xs text-gray-400 hover:text-red-600"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={discountInput}
-                      onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") applyDiscount();
-                      }}
-                      placeholder="Enter code"
-                      maxLength={50}
-                      className="flex-1 rounded-lg border border-gray-200 px-3 py-2.5 text-sm uppercase tracking-wide focus:border-red-400 focus:outline-none"
-                    />
-                    <button
-                      onClick={applyDiscount}
-                      disabled={applyingDiscount || !discountInput.trim()}
-                      className="rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-50"
-                    >
-                      {applyingDiscount ? "…" : "Apply"}
-                    </button>
-                  </div>
-                )}
-                {discountError && <p className="mt-2 text-xs text-red-600">{discountError}</p>}
-              </div>
-
-              {/* Navigation */}
-              {intentError && <p className="text-xs text-red-600">{intentError}</p>}
-              <div className="flex gap-3">
                 <button
-                  onClick={() => setStep(1)}
+                  onClick={() => {
+                    setStep(2);
+                    setPaypalError("");
+                  }}
                   className="rounded-lg border border-gray-200 px-5 py-3 text-sm font-medium text-gray-700 hover:border-gray-300"
                 >
                   ← Back
                 </button>
-                <button
-                  onClick={advanceToPayment}
-                  disabled={creatingIntent}
-                  className="flex-1 rounded-lg bg-red-600 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
-                >
-                  {creatingIntent ? "Preparing payment…" : "Continue to Payment →"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3 — Payment */}
-          {step === 3 && clientSecret && (
-            <Elements
-              stripe={stripePromise}
-              options={{
-                clientSecret,
-                appearance: { theme: "stripe", variables: { colorPrimary: "#dc2626" } },
-              }}
-            >
-              <PaymentStep
-                orderNumber={orderNumber!}
-                total={orderTotal}
-                onBack={() => {
-                  setStep(2);
-                  setClientSecret(null);
-                }}
-              />
-            </Elements>
-          )}
-
-          {/* Step 4 stub */}
-          {step === 4 && (
-            <div className="rounded-2xl border border-gray-100 p-6">
-              <p className="text-sm text-gray-400">Confirmation — coming in Task 6.5</p>
-            </div>
-          )}
-        </div>
-
-        {/* ── Right: order summary ───────────────────────────────────────────── */}
-        <aside className="rounded-2xl border border-gray-100 p-5 h-fit">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Order Summary
-          </h2>
-          <ul className="space-y-3">
-            {isOfferMode ? (
-              <li className="flex items-start justify-between gap-3 text-sm">
-                <span className="line-clamp-2 text-gray-700">
-                  {offerProduct!.title} <span className="text-gray-400">× 1</span>
-                </span>
-                <span className="flex-shrink-0 font-medium text-green-700">
-                  ${offerPrice!.toFixed(2)}
-                </span>
-              </li>
-            ) : (
-              cart.items.map((item) => (
-                <li key={item.productId} className="flex items-start justify-between gap-3 text-sm">
-                  <span className="line-clamp-2 text-gray-700">
-                    {item.title} <span className="text-gray-400">× {item.quantity}</span>
-                  </span>
-                  <span className="flex-shrink-0 font-medium text-gray-900">
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </span>
-                </li>
-              ))
-            )}
-          </ul>
-
-          <div className="mt-4 space-y-1.5 border-t border-gray-100 pt-4 text-sm">
-            <div className="flex justify-between text-gray-500">
-              <span>Subtotal</span>
-              <span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-gray-500">
-              <span>Shipping</span>
-              <span className="font-medium text-gray-900">
-                {shippingMethod ? (
-                  freeShipping ? (
-                    <span className="text-green-600">Free</span>
-                  ) : (
-                    `$${shippingCost.toFixed(2)}`
-                  )
-                ) : (
-                  <span className="text-gray-400 text-xs">Select method</span>
-                )}
-              </span>
-            </div>
-            {discount && (
-              <div className="flex justify-between text-green-600">
-                <span>Discount ({discount.code})</span>
-                <span>−${discountAmt.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-gray-900">
-              <span>Total</span>
-              <span>{shippingMethod ? `$${orderTotal.toFixed(2)}` : "—"}</span>
-            </div>
+
+            {/* Step 4 stub */}
+            {step === 4 && (
+              <div className="rounded-2xl border border-gray-100 p-6">
+                <p className="text-sm text-gray-400">Confirmation — coming in Task 6.5</p>
+              </div>
+            )}
           </div>
 
-          {subtotal < FREE_THRESHOLD && (
-            <p className="mt-3 text-xs text-gray-400">
-              Add ${(FREE_THRESHOLD - subtotal).toFixed(2)} more for free shipping.
-            </p>
-          )}
-        </aside>
+          {/* ── Right: order summary ───────────────────────────────────────────── */}
+          <aside className="rounded-2xl border border-gray-100 p-5 h-fit">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Order Summary
+            </h2>
+            <ul className="space-y-3">
+              {isOfferMode ? (
+                <li className="flex items-start justify-between gap-3 text-sm">
+                  <span className="line-clamp-2 text-gray-700">
+                    {offerProduct!.title} <span className="text-gray-400">× 1</span>
+                  </span>
+                  <span className="flex-shrink-0 font-medium text-green-700">
+                    ${offerPrice!.toFixed(2)}
+                  </span>
+                </li>
+              ) : (
+                cart.items.map((item) => (
+                  <li
+                    key={item.productId}
+                    className="flex items-start justify-between gap-3 text-sm"
+                  >
+                    <span className="line-clamp-2 text-gray-700">
+                      {item.title} <span className="text-gray-400">× {item.quantity}</span>
+                    </span>
+                    <span className="flex-shrink-0 font-medium text-gray-900">
+                      ${(item.price * item.quantity).toFixed(2)}
+                    </span>
+                  </li>
+                ))
+              )}
+            </ul>
+
+            <div className="mt-4 space-y-1.5 border-t border-gray-100 pt-4 text-sm">
+              <div className="flex justify-between text-gray-500">
+                <span>Subtotal</span>
+                <span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-500">
+                <span>Shipping</span>
+                <span className="font-medium text-gray-900">
+                  {shippingMethod ? (
+                    freeShipping ? (
+                      <span className="text-green-600">Free</span>
+                    ) : (
+                      `$${shippingCost.toFixed(2)}`
+                    )
+                  ) : (
+                    <span className="text-gray-400 text-xs">Select method</span>
+                  )}
+                </span>
+              </div>
+              {discount && (
+                <div className="flex justify-between text-green-600">
+                  <span>Discount ({discount.code})</span>
+                  <span>−${discountAmt.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-gray-900">
+                <span>Total</span>
+                <span>{shippingMethod ? `$${orderTotal.toFixed(2)}` : "—"}</span>
+              </div>
+            </div>
+
+            {subtotal < FREE_THRESHOLD && (
+              <p className="mt-3 text-xs text-gray-400">
+                Add ${(FREE_THRESHOLD - subtotal).toFixed(2)} more for free shipping.
+              </p>
+            )}
+          </aside>
+        </div>
       </div>
-    </div>
+    </PayPalScriptProvider>
   );
 }
