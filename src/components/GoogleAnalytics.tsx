@@ -11,7 +11,7 @@ const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
  * Responds to consent changes dispatched by CookieConsent via "cc_consent_update".
  * If GA_ID is not set, renders nothing — safe for dev environments.
  */
-export default function GoogleAnalytics() {
+export default function GoogleAnalytics({ nonce }: { nonce?: string }) {
   const [consent, setConsent] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,8 +35,9 @@ export default function GoogleAnalytics() {
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
         strategy="afterInteractive"
+        nonce={nonce}
       />
-      <Script id="google-analytics" strategy="afterInteractive">
+      <Script id="google-analytics" strategy="afterInteractive" nonce={nonce}>
         {`
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}

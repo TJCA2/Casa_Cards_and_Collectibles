@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://casa-cards.com";
@@ -8,15 +9,18 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://casa-cards.com";
 // Marks the subscriber as inactive and redirects to a confirmation page.
 
 export async function GET(req: NextRequest) {
-  const email = new URL(req.url).searchParams.get("email");
+  const raw = new URL(req.url).searchParams.get("email");
+  const parsed = z.string().email().max(254).safeParse(raw);
 
-  if (!email) {
+  if (!parsed.success) {
     return NextResponse.redirect(`${SITE_URL}/unsubscribe?status=error`);
   }
 
+  const email = parsed.data;
+
   try {
     await prisma.emailSubscriber.updateMany({
-      where: { email: email.toLowerCase() },
+      where: { email: String(email.toLowerCase()) },
       data: { isActive: false },
     });
   } catch {

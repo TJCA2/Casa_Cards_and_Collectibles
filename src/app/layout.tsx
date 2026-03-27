@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -22,15 +23,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="en" className="scroll-pt-20">
       <body className="flex min-h-screen flex-col bg-white text-gray-900 antialiased">
-        <GoogleAnalytics />
+        <GoogleAnalytics nonce={nonce} />
         <Providers>
           <CartProvider>
             <SearchShortcut />

@@ -169,14 +169,16 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <>
-      {/* JSON-LD */}
+      {/* JSON-LD — replace < to prevent </script> injection in serialized data */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c") }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c"),
+        }}
       />
 
       <div className="mx-auto max-w-7xl px-4 py-10">
