@@ -42,7 +42,7 @@ export async function PUT(req: NextRequest, { params }: { params: Params }) {
   const address = await prisma.$transaction(async (tx) => {
     if (isDefault) {
       await tx.address.updateMany({
-        where: { userId, isDefault: true, id: { not: id } },
+        where: { userId: String(userId), isDefault: true, id: { not: String(id) } },
         data: { isDefault: false },
       });
     }

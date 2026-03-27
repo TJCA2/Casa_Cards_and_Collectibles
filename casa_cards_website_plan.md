@@ -1552,10 +1552,10 @@ TAXJAR_API_KEY=<...>
 **Payments**
 
 - [x] Create a PayPal Business account (or confirm existing one) at paypal.com/business
-- [ ] Create a Live app at developer.paypal.com → Apps & Credentials → Create App (select Live)
-- [ ] Add `NEXT_PUBLIC_PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` (Live) to Vercel environment variables
-- [ ] Register the Live PayPal webhook at developer.paypal.com → your Live app → Webhooks: URL `https://casa-cards.com/api/webhooks/paypal`, events: `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REVERSED`
-- [ ] Copy the Webhook ID into Vercel as `PAYPAL_WEBHOOK_ID`
+- [x] Create a Live app at developer.paypal.com → Apps & Credentials → Create App (select Live)
+- [x] Add `NEXT_PUBLIC_PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` (Live) to Vercel environment variables
+- [x] Register the Live PayPal webhook at developer.paypal.com → your Live app → Webhooks: URL `https://casa-cards.com/api/webhooks/paypal`, events: `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REVERSED`
+- [x] Copy the Webhook ID into Vercel as `PAYPAL_WEBHOOK_ID`
 - [ ] Complete PayPal identity verification and connect a bank account for payouts (in PayPal Business settings)
 
 **Hosting & Environment** ✅

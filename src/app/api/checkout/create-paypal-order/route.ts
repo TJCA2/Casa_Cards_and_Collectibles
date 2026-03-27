@@ -173,7 +173,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const totalAmount = Math.max(0.5, subtotal + shippingCost - discountAmount);
+  const TAX_RATE = 0.08;
+  const taxAmount = parseFloat((subtotal * TAX_RATE).toFixed(2));
+  const totalAmount = Math.max(0.5, subtotal + shippingCost + taxAmount - discountAmount);
 
   // ── 4. Generate order number ─────────────────────────────────────────────────
   const orderNumber = generateOrderNumber();
@@ -195,6 +197,10 @@ export async function POST(req: NextRequest) {
             shipping: {
               currency_code: "USD",
               value: shippingCost.toFixed(2),
+            },
+            tax_total: {
+              currency_code: "USD",
+              value: taxAmount.toFixed(2),
             },
             discount: {
               currency_code: "USD",
@@ -241,7 +247,7 @@ export async function POST(req: NextRequest) {
         status: "PENDING",
         subtotal,
         shippingCost,
-        taxAmount: 0,
+        taxAmount,
         totalAmount,
         paymentProvider: "PAYPAL",
         paymentIntentId: paypalOrder.id,

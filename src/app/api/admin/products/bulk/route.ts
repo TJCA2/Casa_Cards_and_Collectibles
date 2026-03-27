@@ -50,7 +50,9 @@ export async function POST(req: NextRequest) {
 
   const deletableIds = ids.filter((id) => !orderedProductIds.includes(id));
 
-  const { count } = await prisma.product.deleteMany({ where: { id: { in: deletableIds } } });
+  const { count } = await prisma.product.deleteMany({
+    where: { id: { in: deletableIds.map(String) } },
+  });
   await logAdminAction(session.user.id, "BULK_DELETE", "Product", undefined, {
     requested: ids.length,
     deleted: count,

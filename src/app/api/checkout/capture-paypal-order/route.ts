@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     if (order.offerToken) {
       await tx.offer.updateMany({
-        where: { purchaseToken: order.offerToken, status: "ACCEPTED" },
+        where: { purchaseToken: String(order.offerToken), status: "ACCEPTED" },
         data: { status: "PURCHASED" },
       });
     }

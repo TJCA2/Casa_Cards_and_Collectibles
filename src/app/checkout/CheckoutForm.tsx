@@ -265,7 +265,9 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress, of
         ? 4.99
         : 0;
   const discountAmt = discount?.amount ?? 0;
-  const orderTotal = Math.max(0, subtotal + shippingCost - discountAmt);
+  const TAX_RATE = 0.08;
+  const taxAmount = parseFloat((subtotal * TAX_RATE).toFixed(2));
+  const orderTotal = Math.max(0, subtotal + shippingCost + taxAmount - discountAmt);
 
   // ── Offer token loading / error states ──────────────────────────────────────
   if (offerToken && offerLoading) {
@@ -876,6 +878,10 @@ export default function CheckoutForm({ userEmail, isLoggedIn, defaultAddress, of
                     <span className="text-gray-400 text-xs">Select method</span>
                   )}
                 </span>
+              </div>
+              <div className="flex justify-between text-gray-500">
+                <span>Tax (8%)</span>
+                <span className="font-medium text-gray-900">${taxAmount.toFixed(2)}</span>
               </div>
               {discount && (
                 <div className="flex justify-between text-green-600">
