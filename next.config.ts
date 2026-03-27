@@ -66,8 +66,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   headers: async () => [
     {
-      // Apply security headers to ALL routes
-      source: "/:path*",
+      // Apply security headers to ALL routes including root "/"
+      source: "/(.*)",
       headers: securityHeaders,
     },
   ],
