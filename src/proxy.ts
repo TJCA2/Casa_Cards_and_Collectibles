@@ -9,6 +9,23 @@ const API_PATTERN =
 const ADMIN_PAGE_PATTERN = /^\/admin(\/|$)/;
 const ADMIN_API_PATTERN = /^\/api\/admin\//;
 
+function buildCsp(nonce: string): string {
+  return [
+    `default-src 'self'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://www.paypal.com https://www.paypalobjects.com https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com`,
+    `style-src 'self' 'unsafe-inline' https://www.paypalobjects.com`,
+    `img-src 'self' data: blob: https:`,
+    `font-src 'self' https://www.paypalobjects.com`,
+    `frame-src https://www.paypal.com https://www.sandbox.paypal.com https://challenges.cloudflare.com`,
+    `connect-src 'self' https://www.paypal.com https://www.sandbox.paypal.com https://api.paypal.com https://api.sandbox.paypal.com https://challenges.cloudflare.com https://www.google-analytics.com https://region1.analytics.google.com https://analytics.google.com https://www.googletagmanager.com`,
+    `object-src 'none'`,
+    `base-uri 'self'`,
+    `form-action 'self'`,
+    `frame-ancestors 'none'`,
+    `upgrade-insecure-requests`,
+  ].join("; ");
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
@@ -39,45 +56,48 @@ export async function proxy(request: NextRequest) {
   const isAuth = AUTH_PATTERN.test(pathname);
   const isApi = API_PATTERN.test(pathname);
 
-  if (!isAuth && !isApi) return NextResponse.next();
-
-  const limiter = isAuth ? authRatelimit : apiRatelimit;
-  try {
-    const { success, limit, reset } = await limiter.limit(ip);
-    if (!success) {
-      return new NextResponse("Too Many Requests", {
-        status: 429,
-        headers: {
-          "Retry-After": String(Math.ceil((reset - Date.now()) / 1000)),
-          "X-RateLimit-Limit": String(limit),
-          "X-RateLimit-Remaining": "0",
-          "X-RateLimit-Reset": String(reset),
-        },
-      });
+  if (isAuth || isApi) {
+    const limiter = isAuth ? authRatelimit : apiRatelimit;
+    try {
+      const { success, limit, reset } = await limiter.limit(ip);
+      if (!success) {
+        return new NextResponse("Too Many Requests", {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((reset - Date.now()) / 1000)),
+            "X-RateLimit-Limit": String(limit),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(reset),
+          },
+        });
+      }
+    } catch {
+      // Upstash unavailable — fail open so auth routes still work.
+      // Supabase-based login attempt tracking still provides brute-force protection.
     }
-  } catch {
-    // Upstash unavailable — fail open so auth routes still work.
-    // Supabase-based login attempt tracking still provides brute-force protection.
   }
 
-  return NextResponse.next();
+  // ── CSP nonce (applied to all passing requests) ────────────────────────────
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  response.headers.set("Content-Security-Policy", buildCsp(nonce));
+  return response;
 }
 
 export const config = {
   matcher: [
-    "/admin/:path*",
-    "/api/auth/:path*",
-    "/api/admin/:path*",
-    "/api/checkout/:path*",
-    "/api/contact",
-    "/api/ebay-sync",
-    "/api/ebay/:path*",
-    "/api/newsletter/:path*",
-    "/api/products/:path*",
-    "/api/cart/:path*",
-    "/api/orders/:path*",
-    "/api/account/:path*",
-    "/api/account/verify-email-change",
-    "/api/offers/:path*",
+    {
+      source:
+        "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
   ],
 };
